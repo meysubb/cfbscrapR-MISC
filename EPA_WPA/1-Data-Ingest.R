@@ -75,3 +75,4 @@ clean_drive = dat_merge %>% mutate(
     next_drive_point = pmax(lead(-pts_drive),-2)
   )
                                            
+clean_drive[which(clean_drive$pts_drive == 0),"pts_drive"] = clean_drive$next_drive_point
