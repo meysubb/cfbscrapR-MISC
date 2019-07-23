@@ -1,7 +1,7 @@
 library(cfbscrapR)
 library(dplyr)
 library(stringr)
-
+source("6-Utils.R")
 
 ## Pull Schedule data
 
@@ -23,7 +23,7 @@ drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 dat_merge <- drive_dat %>% merge(schedule_df_clean)
 colnames(dat_merge)[7] <- "drive_id"
 dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
-write.csv(dat_merge,"data/clean_drives_data.csv")
+write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
 
 week_vector = 1:15
 year_vector = 2010:2018
@@ -46,6 +46,7 @@ year_split = lapply(year_split,function(x){
 
 
 all_years = bind_rows(year_split) #%>% inner_join(drive)
+write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
 
 drive_join_df = dat_merge %>% select(home_team,drive_id)
 # Figure out the adjusted yard-line, since the API has it in terms of home team
@@ -58,15 +59,18 @@ clean_all_years = all_years %>% inner_join(drive_join_df,by=c('drive_id')) %>%
     raw_secs = clock.minutes * 60 + clock.seconds,
     coef = home_team == defense,
     adj_yd_line = 100 * (1-coef) + (2*coef-1)*yard_line,
-    log_ydstogo = log(adj_yd_line)
+    log_ydstogo = log(adj_yd_line),
+    half = ifelse(period<=2,1,2)
   ) %>% select(-coef)
 
 ## Figure out the next score now
 clean_drive = dat_merge %>% mutate(
   pts_drive = case_when(
     str_detect(drive_result,"TD") ~ 7,
-    str_detect(drive_result,"FG") ~ 3,
+    #str_detect(drive_result,"FG") ~ 3,
     str_detect(drive_result,"SF") ~ -2,
+    drive_result == 'FG GOOD' ~ 3,
+    drive_result == 'FG' ~ 3,
     drive_result == 'MISSED FG TD' ~ -7,
     drive_result == 'KICKOFF RETURN TD' ~ -7,
     drive_result == 'PUNT RETURN TD' ~ -7,
@@ -76,18 +80,34 @@ clean_drive = dat_merge %>% mutate(
     drive_result == 'FUMBLE RETURN TD' ~ -7,
     drive_result == 'FUMBLE TD' ~ -7,
     drive_result == 'DOWNS TD' ~ -7,
-    TRUE ~ 0)
+    TRUE ~ 0),
+  scoring = ifelse(pts_drive!=0,TRUE,scoring)
 ) %>% arrange(game_id,drive_id)
 
 ## Find next scoring drive.
 ## try to find next score for just one game, then apply throughout
-sample_test = clean_drive %>% filter(game_id == 302450005	)
+# g_ids = clean_drive$game_id %>% sample(5)
+# sample_test = clean_drive %>% filter(game_id %in% g_ids) %>%
+#   select(game_id,drive_id,offense,defense,scoring,start_yardline,end_yardline,plays,drive_result,pts_drive,start_period) %>%
+#   mutate(
+#     half = ifelse(start_period<=2,1,2)
+#   ) %>% group_by(half) %>% arrange(game_id,drive_id)
 
-score_bool = cumsum(sample_test$pts_drive != 0) + 1
-scores = sample_test$pts_drive[which(sample_test$pts_drive !=0)]
+## get the next score half
+## with the drive_details
+clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
+                               function(x) {
+                                 clean_drive %>%
+                                   filter(game_id == x) %>%
+                                   find_game_next_score_half()
+                               })
 
-sample_test$next_score <- scores[score_bool]
+# drive, and the next drives score details
+# join this back to the pbp
+clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH)
+#%>%mutate(drive_id = as.numeric(drive_id))
 
+pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
+write.csv(pbp_full_df,"data/full_pbp_df.csv")
 
-
-clean_drive[which(clean_drive$pts_drive == 0),"pts_drive"] = clean_drive$next_drive_point
+saveRDS(pbp_full_df,"data/pbp.rds")
