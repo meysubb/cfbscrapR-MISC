@@ -95,6 +95,7 @@ clean_drive = dat_merge %>% mutate(
 
 ## get the next score half
 ## with the drive_details
+library(purrr)
 clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
                                function(x) {
                                  clean_drive %>%
@@ -104,10 +105,21 @@ clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
 
 # drive, and the next drives score details
 # join this back to the pbp
-clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH)
+clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH) %>%
+  mutate(
+    Next_Score = case_when(
+      NSH == 7 ~ "TD",
+      NSH == 3 ~ "FG",
+      NSH == 2 ~ "Safety",
+      NSH == -2 ~ "Opp Safety",
+      NSH == -3  ~ "Opp FG",
+      NSH == -7 ~ "Opp TD",
+      TRUE ~ "No_Score"
+    )
+  )
 #%>%mutate(drive_id = as.numeric(drive_id))
 
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
-write.csv(pbp_full_df,"data/full_pbp_df.csv")
+#write.csv(pbp_full_df,"data/full_pbp_df.csv")
 
 saveRDS(pbp_full_df,"data/pbp.rds")
