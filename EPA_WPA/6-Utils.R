@@ -65,6 +65,9 @@ prep_df_epa <- function(dat) {
     'Pass Interception'
   )
   
+  off_TD = c('Passing Touchdown','Rushing Touchdown')
+  def_TD = c('Interception Return Touchdown','Fumble Return Touchdown')
+  
   dat = dat %>%
     mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
     mutate(
@@ -106,15 +109,58 @@ prep_df_epa <- function(dat) {
   fifty_ydline = str_detect(dat$play_text, "50 yard line")
   dat[fifty_ydline, "new_yardline"] = 50
   
-  opp_fumb_rec = str_detect(dat$play_text, "Fumble Recovery (Opponent)")
-  dat[opp_fumb_rec, "new_yardline"] = 100 - (dat[opp_fumb_rec, "yard_line"] +
-                                               dat[opp_fumb_rec, "yards_gained"])
+  opp_fumb_rec = dat$play_type=="Fumble Recovery (Opponent)"
   dat[opp_fumb_rec, "new_down"] = 1
   dat[opp_fumb_rec, "new_distance"] = 10
+  dat[opp_fumb_rec, "new_yardline"] = 100 - (dat[opp_fumb_rec, "yard_line"] +
+                                               dat[opp_fumb_rec, "yards_gained"])
+  
   
   sack = str_detect(dat$play_type, "Sack")
   dat[sack, "new_yardline"] = 100 - (dat[sack, "yard_line"] - dat[sack, "yards_gained"])
   dat[sack, "new_down"] = dat[sack, "down"] + 1
   dat[sack, "new_distance"] = dat[sack, "distance"] - dat[sack, "yards_gained"]
+  
+  touchback = str_detect(dat$play_text,"touchback")
+  dat[touchback,"new_yardline"] = 80
+  dat[touchback,"new_down"] = 1
+  
+  safety = dat$play_type == 'Safety'
+  dat[safety,"new_yardline"] = 99
+  
+  off_td_ind = dat$play_type %in% off_TD
+  dat[off_td_ind,"new_down"] = 1
+  dat[off_td_ind,"new_distance"] = 10
+  
+  #Fake yardline for Offensive tocuhdown play
+  temp_inds = (off_td_ind | (dat$play_type %in% def_TD))
+  dat[temp_inds,"new_yardline"] = 99
+  
+  # Turnovers on Down 
+  tod_ind  = (!off_td_ind) & (dat$new_down>4)
+  dat[tod_ind,"turnover"] = 1
+  dat[tod_ind,"new_down"] = 1
+  dat[tod_ind,"new_distance"] = 10
+  dat[tod_ind,"new_yardline"] = 100-dat[tod_ind,"new_yardline"]
+  
+  
+  missing_inds = dat$new_distance <= 0 
+  dat[missing_inds,"new_down"] = 1
+  dat[missing_inds,"new_distance"] = 10
+  dat[missing_inds,"new_yardline"] = dat[missing_inds,"adj_yd_line"] - dat[missing_inds,"yards_gained"]
+  
+  ## If 0, reset to 25
+  zero_yd_line = dat$new_yardline == 0
+  dat[zero_yd_line,"new_yardline"] = 25
+  
+  dat = dat %>% select(TimeSecsRem,new_down,new_distance,new_yardline) %>%
+    mutate(
+      new_TimeSecsRem = lead(TimeSecsRem),
+      new_log_ydstogo = log(new_yardline)) %>%
+    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>%  select(-TimeSecsRem) %>%
+    rename(adj_yd_line=new_yardline)
+  colnames(dat) = gsub("new_","",colnames(dat))
+  
+  
   return(dat)
 }

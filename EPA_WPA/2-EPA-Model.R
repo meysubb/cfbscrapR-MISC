@@ -2,6 +2,7 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
+source("6-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds")
 
@@ -28,7 +29,7 @@ pbp_no_OT <-
 ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line +
                              down + log_ydstogo + log_ydstogo*down +
                              adj_yd_line*down, data = pbp_no_OT, maxit = 300)
-
+saveRDS(ep_model,"ep_model.rds")
 
 test = pbp_no_OT %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo) %>% 
   filter()
@@ -51,15 +52,17 @@ tamu_18_pred$ep_before = apply(ep_start, 1, function(row){
 # New Down = 1
 # New Distance = 10
 
-tamu_18_dat = prep_df_epa(tamu_18)
+tamu_18_dat = prep_df_epa(tamu_18) 
 
+ep_end = predict(ep_model,tamu_18_dat,type='prob')
+tamu_18_pred$ep_after = apply(ep_end, 1, function(row){
+  sum(row * weights)
+})
 
+tamu_18_pred = tamu_18_pred %>% 
+  mutate(
+    EPA = ep_after - ep_before
+  )
 
-
-## pick an SEC game
-
-tamu_18 = pbp_no_OT %>% filter(
-  year == 2018,
-  offense %in% c("Clemson", "Texas A&M"),
-  defense %in% c("Clemson", "Texas A&M")
-) %>% select(-X1)
+## Review EPA calcs
+tamu_18_pred = cbind(tamu_18$play_text,tamu_18_pred)
