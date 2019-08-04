@@ -105,7 +105,7 @@ clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
 
 # drive, and the next drives score details
 # join this back to the pbp
-clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH) %>%
+clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH,scoring) %>%
   mutate(
     Next_Score = case_when(
       NSH == 7 ~ "TD",

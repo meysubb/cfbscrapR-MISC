@@ -150,10 +150,10 @@ prep_df_epa <- function(dat) {
   dat[missing_inds,"new_yardline"] = dat[missing_inds,"adj_yd_line"] - dat[missing_inds,"yards_gained"]
   
   ## If 0, reset to 25
-  zero_yd_line = dat$new_yardline == 0
-  dat[zero_yd_line,"new_yardline"] = 25
+  #zero_yd_line = dat$new_yardline == 0
+  #dat[zero_yd_line,"new_yardline"] = 25
   
-  dat = dat %>% select(TimeSecsRem,new_down,new_distance,new_yardline) %>%
+  dat = dat %>% select(TimeSecsRem,new_down,new_distance,new_yardline,turnover) %>%
     mutate(
       new_TimeSecsRem = lead(TimeSecsRem),
       new_log_ydstogo = log(new_yardline)) %>%
@@ -161,6 +161,9 @@ prep_df_epa <- function(dat) {
     rename(adj_yd_line=new_yardline)
   colnames(dat) = gsub("new_","",colnames(dat))
   
+  adj_to = (dat$adj_yd_line == 0) & (turnover_ind)
+  dat[adj_to,"log_ydstogo"] = log(25)
+  dat[adj_to,"adj_yd_line"] = 25
   
   return(dat)
 }
