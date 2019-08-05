@@ -162,8 +162,10 @@ prep_df_epa <- function(dat) {
   colnames(dat) = gsub("new_","",colnames(dat))
   
   adj_to = (dat$adj_yd_line == 0) & (turnover_ind)
-  dat[adj_to,"log_ydstogo"] = log(25)
-  dat[adj_to,"adj_yd_line"] = 25
+  dat[adj_to,"log_ydstogo"] = log(75)
+  dat[adj_to,"adj_yd_line"] = 75
+  
+  dat$Under_two = dat$TimeSecsRem <= 120
   
   return(dat)
 }
