@@ -62,9 +62,10 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   pred_df = clean_pbp_dat %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo,Under_two)
   
   # ep_start
-  ep_start = predict(ep_mod,pred_df,type='prob')
+  ep_start = as.data.frame(predict(ep_mod,pred_df,type='prob'))
+  ep_start_update = epa_fg_probs(dat = clean_pbp_dat,current_probs = ep_start,fg_mod = fg_mod)
   weights = c(0,3,-3,-2,-7,2,7)
-  pred_df$ep_before = apply(ep_start, 1, function(row){
+  pred_df$ep_before = apply(ep_start_update, 1, function(row){
     sum(row * weights)
   })
   
@@ -109,14 +110,23 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
   
   # we are setting everythign after 0 seconds to have 
   # 0 probs. 
-  end_game_ind = which(dat$TimeSecsRem) <= 0 
+  end_game_ind = which(dat$TimeSecsRem <= 0 )
   current_probs[end_game_ind,] <- 0
   
   make_fg_prob <- mgcv::predict.bam(fg_mod,newdata = fg_dat,
                                     type = "response")
   
-  current_probs[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
-  
+  # add in the fg make prob into this 
+  current_probs2 <- current_probs
+  current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
+  # now to flip all the probs,
+  current_probs2[fg_ind,"FG"] <- make_fg_prob + current_probs[fg_ind,"Opp FG"]
+  current_probs2[fg_ind,"Opp FG"] <- current_probs[fg_ind,"FG"]
+  current_probs2[fg_ind,"TD"] <- current_probs[fg_ind,"Opp TD"]
+  current_probs2[fg_ind,"Opp TD"] <- current_probs[fg_ind,"TD"]
+  current_probs2[fg_ind,"Safety"] <- current_probs[fg_ind,"Opp Safety"]
+  current_probs2[fg_ind,"Opp Safety"] <- current_probs[fg_ind,"Safety"]
+  return(current_probs2)
 }
 
 tamu_18 = pbp_no_OT %>% filter(

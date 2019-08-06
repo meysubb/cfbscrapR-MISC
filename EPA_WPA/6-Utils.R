@@ -143,6 +143,22 @@ prep_df_epa <- function(dat) {
   dat[tod_ind,"new_distance"] = 10
   dat[tod_ind,"new_yardline"] = 100-dat[tod_ind,"new_yardline"]
   
+  # missed field goal, what happens
+  miss_fg <- "Field Goal Missed"
+  miss_fg_ind = dat$play_type == miss_fg
+  dat[miss_fg_ind,"new_down"] = 1 
+  dat[miss_fg_ind,"new_distance"] = 10
+  # if FG is within 20, team gets it at the 20
+  # otherwise team gets it at the LOS (add the 17 yards back)
+  dat[miss_fg_ind,"new_yardline"] = ifelse(dat[miss_fg_ind,"adj_yd_line"]<=20,80,100 - (dat[miss_fg_ind,"adj_yd_line"]-17))
+  
+  # missed field goal return
+  block_return <- c("Missed Field Goal Return","Blocked Field Goal")
+  block_inds = dat$play_type %in% block_return
+  dat[block_inds,"new_down"] = 1
+  dat[block_inds,"new_distance"] = 10
+  dat[block_inds,"new_yardline"] = (100 - dat[block_inds,"adj_yd_line"])  - dat[block_inds,"yards_gained"]
+
   
   missing_inds = dat$new_distance <= 0 
   dat[missing_inds,"new_down"] = 1

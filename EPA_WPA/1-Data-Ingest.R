@@ -25,6 +25,8 @@ colnames(dat_merge)[7] <- "drive_id"
 dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
 write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
 
+#dat_merge <- read_csv("data/clean_drives_data.csv")
+
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
@@ -48,6 +50,8 @@ year_split = lapply(year_split,function(x){
 all_years = bind_rows(year_split) #%>% inner_join(drive)
 write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
 
+all_years <- read_csv("data/raw_all_years.csv")
+
 drive_join_df = dat_merge %>% select(home_team,drive_id)
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
@@ -62,6 +66,10 @@ clean_all_years = all_years %>% inner_join(drive_join_df,by=c('drive_id')) %>%
     log_ydstogo = log(adj_yd_line),
     half = ifelse(period<=2,1,2)
   ) %>% select(-coef)
+
+# Adjust Field Goal by 17 yards
+fg_inds = str_detect(clean_all_years$play_type,"Field Goal")
+clean_all_years[fg_inds,"adj_yd_line"] = clean_all_years[fg_inds,"adj_yd_line"] + 17
 
 ## Figure out the next score now
 clean_drive = dat_merge %>% mutate(
