@@ -159,6 +159,14 @@ prep_df_epa <- function(dat) {
   dat[block_inds,"new_distance"] = 10
   dat[block_inds,"new_yardline"] = (100 - dat[block_inds,"adj_yd_line"])  - dat[block_inds,"yards_gained"]
 
+  # interception return 
+  int_ret <- c("Pass Interception Return")
+  int_inds = dat$play_type %in% int_ret
+  dat[int_inds,"new_down"] = 1
+  dat[int_inds,"new_distance"] = 10 
+  # extract the yardline via regex
+  # this sucks but do it
+  dat[int_inds,"new_yard_line"]
   
   missing_inds = dat$new_distance <= 0 
   dat[missing_inds,"new_down"] = 1

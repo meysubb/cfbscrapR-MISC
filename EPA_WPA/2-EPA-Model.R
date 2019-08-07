@@ -24,12 +24,13 @@ pbp_no_OT <-
   mutate(Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
          Under_two = TimeSecsRem <= 120)
 
-fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-fg_no_OT <- pbp_no_OT[fg_contains,]
+#fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
+#fg_no_OT <- pbp_no_OT[fg_contains,]
 
 # fg_model <- mgcv::bam(scoring ~ s(adj_yd_line), 
 #                       data = fg_no_OT, family = "binomial")
 # saveRDS(fg_model,"fg_model.rds")
+# Load FG Model
 fg_model = readRDS("fg_model.rds")
 ##+ Under_TwoMinute_Warning
 ## Create a weighting factor
@@ -38,6 +39,7 @@ fg_model = readRDS("fg_model.rds")
 #                               down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down, data = pbp_no_OT, maxit = 300)
 #saveRDS(ep_model,"ep_model.rds")
+# Load EPA Model
 ep_model = readRDS("ep_model.rds")
 
 
@@ -129,10 +131,15 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
   return(current_probs2)
 }
 
-tamu_18 = pbp_no_OT %>% filter(
-  year == 2018,
-  offense %in% c("Clemson", "Texas A&M"),
-  defense %in% c("Clemson", "Texas A&M")
-) 
+## TAMU vs clemson was my benchmark 
+# tamu_18 = pbp_no_OT %>% filter(
+#   year == 2018,
+#   offense %in% c("Clemson", "Texas A&M"),
+#   defense %in% c("Clemson", "Texas A&M")
+# ) 
+sort(unique(pbp_no_OT$year))
 
-q = calculate_epa(tamu_18,ep_model,fg_model)
+epa_2018 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
+
+
+overall_epa = calculate_epa(pbp_no_OT,ep_mod = ep_model,fg_model)
