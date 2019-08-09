@@ -13,7 +13,7 @@ pbp_full_df <- readRDS(file = "data/pbp.rds") %>% select(-X1)
 
 # Remove  [8] "Extra Point Missed","Extra Point Good","Timeout","End of Half","End of Game","Uncategorized"
 remove_plays <- c("Extra Point Missed","Extra Point Good","Timeout","End of Half","End of Game","Uncategorized",
-                  "Penalty","Kickoff","Kickoff Return (Offense)")
+                  "Penalty","Kickoff","Kickoff Return (Offense)","Kickoff Return Touchdown")
 
 pbp_no_OT <-
   pbp_full_df %>% filter(period <= 4, down > 0) %>%
@@ -139,6 +139,7 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 # ) 
 sort(unique(pbp_no_OT$year))
 
+dat_18 = pbp_no_OT %>% filter(year==2018)
 epa_2018 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
 
 
