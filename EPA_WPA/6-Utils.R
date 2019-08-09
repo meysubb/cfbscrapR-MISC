@@ -272,6 +272,8 @@ prep_df_epa <- function(dat) {
     rename(adj_yd_line=new_yardline) 
   colnames(dat) = gsub("new_","",colnames(dat))
   
+  ## seems to fail here, figure out why. 
+  ## doesn't like 
   adj_to = (dat$adj_yd_line == 0) & (turnover_ind)
   dat[adj_to,"log_ydstogo"] = log(75)
   dat[adj_to,"adj_yd_line"] = 75
