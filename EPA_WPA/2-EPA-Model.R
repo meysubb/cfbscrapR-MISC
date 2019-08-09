@@ -2,9 +2,9 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
-source("6-Utils.R")
+source("EPA_WPA/6-Utils.R")
 
-pbp_full_df <- readRDS(file = "data/pbp.rds") %>% select(-X1)
+pbp_full_df <- readRDS(file = "data/pbp.rds") 
 
 ## Filter out OT games for now
 # Create the EP model dataset that only includes plays with basic seven
@@ -24,11 +24,11 @@ pbp_no_OT <-
   mutate(Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
          Under_two = TimeSecsRem <= 120)
 
-#fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-#fg_no_OT <- pbp_no_OT[fg_contains,]
-
+# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
+# fg_no_OT <- pbp_no_OT[fg_contains,]
+# 
 # fg_model <- mgcv::bam(scoring ~ s(adj_yd_line), 
-#                       data = fg_no_OT, family = "binomial")
+#                        data = fg_no_OT, family = "binomial")
 # saveRDS(fg_model,"fg_model.rds")
 # Load FG Model
 fg_model = readRDS("fg_model.rds")
@@ -36,9 +36,9 @@ fg_model = readRDS("fg_model.rds")
 ## Create a weighting factor
 # need
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two + 
-#                               down + log_ydstogo + log_ydstogo*down +
+#                                down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down, data = pbp_no_OT, maxit = 300)
-#saveRDS(ep_model,"ep_model.rds")
+saveRDS(ep_model,"ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("ep_model.rds")
 
@@ -133,10 +133,13 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 
 ## TAMU vs clemson was my benchmark 
 # tamu_18 = pbp_no_OT %>% filter(
-#   year == 2018,
-#   offense %in% c("Clemson", "Texas A&M"),
-#   defense %in% c("Clemson", "Texas A&M")
-# ) 
+#    year == 2018,
+#    offense %in% c("Clemson", "Texas A&M"),
+#    defense %in% c("Clemson", "Texas A&M")
+# )
+# 
+# epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
+
 sort(unique(pbp_no_OT$year))
 
 dat_18 = pbp_no_OT %>% filter(year==2018)

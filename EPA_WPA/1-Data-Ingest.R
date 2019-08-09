@@ -1,4 +1,5 @@
 library(cfbscrapR)
+library(tidyverse)
 library(dplyr)
 library(stringr)
 source("6-Utils.R")

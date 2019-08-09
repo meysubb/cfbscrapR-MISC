@@ -150,17 +150,8 @@ prep_df_epa <- function(dat) {
     },simplify = T))
     # now identify, if you need to subtract 100?
     
-    receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered)[^,]+(?=,)')
-    temp_team = str_extract_all(receovered_string, team_abbrs_list)
-    team_team = unlist(sapply(temp_team,function(x){
-      ind = length(x)
-      val = x[ind]
-      if(length(val)==0){
-        return(NA)
-      }
-      return(val)
-    }))
-    dat[sack_fumble,"coef"] = team_team
+    receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered by )[^,]+')
+    dat[sack_fumble,"coef"] = gsub("([A-Za-z]+).*", "\\1",receovered_string)
     dat[sack_fumble,"new_yardline"] = abs(((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q)
   }
   
@@ -251,6 +242,14 @@ prep_df_epa <- function(dat) {
     
   }
   
+  fg_good = str_detect(dat$play_type,"Field Goal Good")
+  if(any(fg_good)){
+    # temp hold anyways, we are going to replace the post EPA here with 3 
+    dat[fg_good,"new_down"] = 1
+    dat[fg_good,"new_distance"] = 10
+    dat[fg_good,"new_yardline"] = 80
+  }
+  
   touchback = str_detect(dat$play_text,"touchback")
   dat[touchback,"new_yardline"] = 80
   dat[touchback,"new_down"] = 1
@@ -275,8 +274,8 @@ prep_df_epa <- function(dat) {
   ## seems to fail here, figure out why. 
   ## doesn't like 
   adj_to = (dat$adj_yd_line == 0) & (turnover_ind)
-  dat[adj_to,"log_ydstogo"] = log(75)
-  dat[adj_to,"adj_yd_line"] = 75
+  dat$log_ydstogo[adj_to,] = log(80)
+  dat$adj_yd_line[adj_to,] = 80
   
   dat$Under_two = dat$TimeSecsRem <= 120
   
