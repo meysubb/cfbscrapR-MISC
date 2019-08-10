@@ -92,10 +92,10 @@ prep_df_epa <- function(dat) {
     left_join(team_abbrs_df,by=c("defense"="full_name"),suffix=c("_offense","_defense"))
   
   # these mess up when you have to regex the yardline, so remove em
-  dat$play_text = gsub("1st down","temp",dat$play_text)
-  dat$play_text = gsub("2nd down","temp",dat$play_text)
-  dat$play_text = gsub("3rd down","temp",dat$play_text)
-  dat$play_text = gsub("4th down","temp",dat$play_text)
+  dat$play_text = gsub("1ST down","temp",dat$play_text)
+  dat$play_text = gsub("2ND down","temp",dat$play_text)
+  dat$play_text = gsub("3RD down","temp",dat$play_text)
+  dat$play_text = gsub("4TH down","temp",dat$play_text)
   
   
   # Turnover Index
@@ -136,23 +136,14 @@ prep_df_epa <- function(dat) {
     
     ## sack and fumble, this seems to be weirdly tricky
     sack_fumble = sack & (str_detect(dat$play_text,"fumbled"))
-    q = str_extract_all(dat$play_text[sack_fumble],"\\d+")
-    q = unlist(sapply(q,function(x){
-      ind = length(x)
-      val = as.numeric(x[ind])
-      if(val==0){
-        val = as.numeric(x[ind-1])
-      }
-      if(length(val)==0){
-        return(NA)
-      }
-      return(val)
-    },simplify = T))
-    # now identify, if you need to subtract 100?
+    if(any(sack_fumble)){
+      q = stringi::stri_extract_last_regex(dat$play_text[sack_fumble],"\\d+")
+      # now identify, if you need to subtract 100?
+      receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered by )[^,]+')
+      dat[sack_fumble,"coef"] = gsub("([A-Za-z]+).*", "\\1",receovered_string)
+      dat[sack_fumble,"new_yardline"] = abs(((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q)
+    }
     
-    receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered by )[^,]+')
-    dat[sack_fumble,"coef"] = gsub("([A-Za-z]+).*", "\\1",receovered_string)
-    dat[sack_fumble,"new_yardline"] = abs(((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q)
   }
   
   
@@ -216,17 +207,8 @@ prep_df_epa <- function(dat) {
     dat[int_inds,"new_distance"] = 10 
     # extract the yardline via regex
     # this sucks but do it
-    q = str_extract_all(dat$play_text[int_inds],"\\d+")
-    q = unlist(sapply(q,function(x){
-      ind = length(x)
-      val = as.numeric(x[ind])
-      if(length(val)==0){
-        return(NA)
-      }
-      return(val)
-    },simplify = T))
+    q = stringi::stri_extract_last_regex(dat$play_text[int_inds],"\\d+")
     # now identify, if you need to subtract 100?
-  
     temp_team = str_extract_all(dat$play_text[int_inds], team_abbrs_list)
     team_team = unlist(sapply(temp_team,function(x){
       ind = length(x)
@@ -242,7 +224,7 @@ prep_df_epa <- function(dat) {
     
   }
   
-  fg_good = str_detect(dat$play_type,"Field Goal Good")
+  fg_good = dat$play_type %in% c("Field Goal Good","Missed Field Goal Return Touchdown")
   if(any(fg_good)){
     # temp hold anyways, we are going to replace the post EPA here with 3 
     dat[fg_good,"new_down"] = 1
@@ -259,6 +241,20 @@ prep_df_epa <- function(dat) {
   dat[missing_inds,"new_distance"] = 10
   dat[missing_inds,"new_yardline"] = dat[missing_inds,"adj_yd_line"] - dat[missing_inds,"yards_gained"]
   
+  ## deal with penalties as they also throw this off 
+  penalty = (str_detect(dat$play_text,"Penalty")) 
+  if(any(penalty)){
+    penalty_string = str_extract(dat$play_text[penalty], '(?<=Penalty,)[^,]+')
+    double_try = str_extract(dat$play_text[penalty],'(?<=to the )[^,]+')
+    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    dat[penalty,"coef"] = gsub("([A-Za-z]+).*", "\\1",double_try)
+    
+  }
+  
+  
+  ## alright, let's deal with the less than 0 occurences. 
+  
+  
   ## If 0, reset to 25
   #zero_yd_line = dat$new_yardline == 0
   #dat[zero_yd_line,"new_yardline"] = 25
@@ -274,8 +270,8 @@ prep_df_epa <- function(dat) {
   ## seems to fail here, figure out why. 
   ## doesn't like 
   adj_to = (dat$adj_yd_line == 0) & (turnover_ind)
-  dat$log_ydstogo[adj_to,] = log(80)
-  dat$adj_yd_line[adj_to,] = 80
+  dat$log_ydstogo[adj_to] = log(80)
+  dat$adj_yd_line[adj_to] = 80
   
   dat$Under_two = dat$TimeSecsRem <= 120
   

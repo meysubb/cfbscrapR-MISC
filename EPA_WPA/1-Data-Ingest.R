@@ -49,9 +49,14 @@ year_split = lapply(year_split,function(x){
 
 
 all_years = bind_rows(year_split) #%>% inner_join(drive)
+# some of these were mis-labelled
+# fix
+all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble")] <- "Fumble Return Touchdown"
 write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
+#all_years <- read_csv("data/raw_all_years.csv")
 
-all_years <- read_csv("data/raw_all_years.csv")
+
+
 
 drive_join_df = dat_merge %>% select(home_team,drive_id)
 # Figure out the adjusted yard-line, since the API has it in terms of home team

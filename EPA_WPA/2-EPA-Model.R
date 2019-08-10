@@ -2,7 +2,7 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
-source("EPA_WPA/6-Utils.R")
+source("6-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds") 
 
@@ -38,7 +38,7 @@ fg_model = readRDS("fg_model.rds")
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two + 
 #                                down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down, data = pbp_no_OT, maxit = 300)
-saveRDS(ep_model,"ep_model.rds")
+#saveRDS(ep_model,"ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("ep_model.rds")
 
@@ -143,6 +143,11 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 sort(unique(pbp_no_OT$year))
 
 dat_18 = pbp_no_OT %>% filter(year==2018)
+tamu_18 = pbp_no_OT %>% filter(
+      year == 2018,
+      offense %in% c("Kentucky", "Texas A&M"),
+      defense %in% c("Kentucky", "Texas A&M"))
+
 epa_2018 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
 
 
