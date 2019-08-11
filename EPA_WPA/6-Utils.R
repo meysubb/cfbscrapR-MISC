@@ -1,7 +1,8 @@
 team_abbrs_df <- read_csv('https://raw.githubusercontent.com/903124/CFB_EPA_data/master/cfb_teams_list.csv')
+team_abbrs_df$full_name <- team_abbrs_df$full_name
 team_abbrs_df$abbreviation <- team_abbrs_df$abbreviation 
 write.csv(team_abbrs_df,"team_abrs.csv",row.names = F)
-
+library(snakecase)
 team_abbrs_list  = paste(team_abbrs_df$abbreviation, collapse="|") 
 
 find_game_next_score_half <- function(drive_df){
@@ -137,13 +138,30 @@ prep_df_epa <- function(dat) {
     ## sack and fumble, this seems to be weirdly tricky
     sack_fumble = sack & (str_detect(dat$play_text,"fumbled"))
     if(any(sack_fumble)){
-      q = stringi::stri_extract_last_regex(dat$play_text[sack_fumble],"\\d+")
+      q = as.numeric(stringi::stri_extract_last_regex(dat$play_text[sack_fumble],"\\d+"))
       # now identify, if you need to subtract 100?
       receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered by )[^,]+')
       dat[sack_fumble,"coef"] = gsub("([A-Za-z]+).*", "\\1",receovered_string)
-      dat[sack_fumble,"new_yardline"] = abs(((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q)
+      dat[sack_fumble,"new_yardline"] = abs(
+        ((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q
+        )
     }
-    
+  }
+  
+  ## deal with penalties as they also throw this off 
+  penalty = (str_detect(dat$play_text,"Penalty")) 
+  if(any(penalty)){
+    penalty_string = str_extract(dat$play_text[penalty], '(?<=Penalty,)[^,]+')
+    double_try = str_extract(penalty_string,'(?<=to the )[^,]+')
+    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    dat[penalty,"coef"] = to_upper_camel_case(gsub("([A-Za-z]+).*", "\\1",double_try))
+    # first calculate things for regular cases
+    dat[penalty,"new_yardline"] = abs(((1-(dat[penalty,"coef"] == dat[penalty,"abbreviation_defense"])) * 100) - q)
+  }
+  
+  declined = penalty & str_detect(dat$play_text,"declined")
+  if(any(declined)){
+    dat[declined,"new_yardline"] = dat[declined,"adj_yd_line"] - dat[declined,"yards_gained"]
   }
   
   
@@ -224,14 +242,6 @@ prep_df_epa <- function(dat) {
     
   }
   
-  fg_good = dat$play_type %in% c("Field Goal Good","Missed Field Goal Return Touchdown")
-  if(any(fg_good)){
-    # temp hold anyways, we are going to replace the post EPA here with 3 
-    dat[fg_good,"new_down"] = 1
-    dat[fg_good,"new_distance"] = 10
-    dat[fg_good,"new_yardline"] = 80
-  }
-  
   touchback = str_detect(dat$play_text,"touchback")
   dat[touchback,"new_yardline"] = 80
   dat[touchback,"new_down"] = 1
@@ -241,14 +251,12 @@ prep_df_epa <- function(dat) {
   dat[missing_inds,"new_distance"] = 10
   dat[missing_inds,"new_yardline"] = dat[missing_inds,"adj_yd_line"] - dat[missing_inds,"yards_gained"]
   
-  ## deal with penalties as they also throw this off 
-  penalty = (str_detect(dat$play_text,"Penalty")) 
-  if(any(penalty)){
-    penalty_string = str_extract(dat$play_text[penalty], '(?<=Penalty,)[^,]+')
-    double_try = str_extract(dat$play_text[penalty],'(?<=to the )[^,]+')
-    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
-    dat[penalty,"coef"] = gsub("([A-Za-z]+).*", "\\1",double_try)
-    
+  fg_good = dat$play_type %in% c("Field Goal Good","Missed Field Goal Return Touchdown")
+  if(any(fg_good)){
+    # temp hold anyways, we are going to replace the post EPA here with 3 
+    dat[fg_good,"new_down"] = 1
+    dat[fg_good,"new_distance"] = 10
+    dat[fg_good,"new_yardline"] = 80
   }
   
   
