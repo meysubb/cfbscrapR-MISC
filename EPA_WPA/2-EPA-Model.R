@@ -142,7 +142,7 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 
 sort(unique(pbp_no_OT$year))
 
-dat_18 = pbp_no_OT %>% filter(year==2018)
+dat_18 = pbp_no_OT %>% filter(year==2017)
 tamu_18 = pbp_no_OT %>% filter(
       year == 2018,
       offense %in% c("Kentucky", "Texas A&M"),

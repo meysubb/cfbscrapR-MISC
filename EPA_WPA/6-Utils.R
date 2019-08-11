@@ -195,8 +195,8 @@ prep_df_epa <- function(dat) {
   
   
   # missed field goal, what happens
-  miss_fg <- "Field Goal Missed"
-  miss_fg_ind = dat$play_type == miss_fg
+  miss_fg <- c("Field Goal Missed","Missed Field Goal Return")
+  miss_fg_ind = dat$play_type %in% miss_fg
   if(any(miss_fg_ind)){
     dat[miss_fg_ind,"new_down"] = 1 
     dat[miss_fg_ind,"new_distance"] = 10
@@ -205,6 +205,11 @@ prep_df_epa <- function(dat) {
     adj_yds = dat[miss_fg_ind,] %>% pull(adj_yd_line)
     dat[miss_fg_ind,"new_yardline"] = ifelse(adj_yds<=20,80,100 - (adj_yds-17))
   }
+  
+  # handle missed field goals here
+  # just workout the yards here
+  miss_fg_return = "Missed Field Goal Return"
+  miss_fg_ind = dat$play_type %in% miss_fg
   
   
   # missed field goal return
@@ -225,7 +230,7 @@ prep_df_epa <- function(dat) {
     dat[int_inds,"new_distance"] = 10 
     # extract the yardline via regex
     # this sucks but do it
-    q = stringi::stri_extract_last_regex(dat$play_text[int_inds],"\\d+")
+    q = as.numeric(stringi::stri_extract_last_regex(dat$play_text[int_inds],"\\d+"))
     # now identify, if you need to subtract 100?
     temp_team = str_extract_all(dat$play_text[int_inds], team_abbrs_list)
     team_team = unlist(sapply(temp_team,function(x){
@@ -260,7 +265,7 @@ prep_df_epa <- function(dat) {
   }
   
   
-  ## alright, let's deal with the less than 0 occurences. 
+  testing = dat %>% filter(new_yardline<0)
   
   
   ## If 0, reset to 25
