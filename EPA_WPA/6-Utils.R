@@ -9,8 +9,7 @@ find_game_next_score_half <- function(drive_df){
   score_plays <- which(drive_df$scoring == TRUE & !str_detect(drive_df$drive_result,"END OF"))
 
   final_df = lapply(1:nrow(drive_df),find_next_score,
-                    score_plays_i = score_plays,dat_drive=drive_df) %>%
-    bind_rows()
+                    score_plays_i = score_plays,dat_drive=drive_df) %>% bind_rows()
 
   final_df2 = cbind(drive_df,final_df)
   return(final_df2)
@@ -92,12 +91,19 @@ prep_df_epa2 <- function(dat){
       new_log_ydstogo = log(new_yardline),
       # new under two minute warnings
       new_Under_two = new_TimeSecsRem <= 120) %>% ungroup() %>% 
-    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% 
-    select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,new_Under_two)
+    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) 
   
-  end_of_half_plays = is.na(dat$new_yardline)
-  dat$new_yardline[end_of_half_plays] <- 99
+  end_of_half_plays = is.na(dat$new_yardline) & (dat$new_TimeSecsRem==0)
+  if(any(end_of_half_plays)){
+    dat$new_yardline[end_of_half_plays] <- 99
+    dat$new_down[end_of_half_plays] <- 4
+    dat$new_distance[end_of_half_plays] <- 99
+    dat$end_half_game <- 1
+    dat$new_log_ydstogo[end_of_half_plays] <- log(99)
+    dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
+  }
   
+  dat = dat %>% select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,new_Under_two,end_half_game) 
   colnames(dat) = gsub("new_","",colnames(dat))
   colnames(dat)[4] <- "adj_yd_line"
   

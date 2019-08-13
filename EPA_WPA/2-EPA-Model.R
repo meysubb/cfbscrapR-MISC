@@ -27,7 +27,7 @@ pbp_no_OT <-
 # fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
 # fg_no_OT <- pbp_no_OT[fg_contains,]
 # 
-# fg_model <- mgcv::bam(scoring ~ s(adj_yd_line), 
+# fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
 #                        data = fg_no_OT, family = "binomial")
 # saveRDS(fg_model,"fg_model.rds")
 # Load FG Model
@@ -35,10 +35,10 @@ fg_model = readRDS("fg_model.rds")
 ##+ Under_TwoMinute_Warning
 ## Create a weighting factor
 # need
-# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two + 
+# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down, data = pbp_no_OT, maxit = 300)
-#saveRDS(ep_model,"ep_model.rds")
+# saveRDS(ep_model,"ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("ep_model.rds")
 
@@ -76,7 +76,7 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   })
   
   ## Prep for EP_after 
-  prep_df_after = prep_df_epa(clean_pbp_dat) 
+  prep_df_after = prep_df_epa2(clean_pbp_dat) 
   #turnover_col = prep_df_after %>% pull(turnover)
   #prep_df_after = prep_df_after %>% select(-turnover)
   
@@ -85,17 +85,17 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
     sum(row * weights)
   })
   
-  pred_df = cbind(clean_pbp_dat[,c("play_type","play_text")],pred_df)
+  pred_df = cbind(clean_pbp_dat,pred_df[,c("ep_before","ep_after")])
   #pred_df$turnover = turnover_col
   
   pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
-  pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
   pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"] = -1 * pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"]
+  pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
   
   pred_df[pred_df$play_type=="Safety","ep_after"] = -2
   pred_df[pred_df$play_type=="Field Goal Good","ep_after"] = 3
-  ## need to do something about the FG related plays using the field goal model here. s
-  #
+  # game end EP is 0
+  pred_df[pred_df$end_half_game == 1,"ep_after"] = 0
   
   
   pred_df = pred_df %>% 
@@ -144,24 +144,28 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 }
 
 ## TAMU vs clemson was my benchmark 
- tamu_18 = pbp_no_OT %>% filter(
-    year == 2018,
-    offense %in% c("Clemson", "Texas A&M"),
-   defense %in% c("Clemson", "Texas A&M")
- )
-# 
-epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
-
-tamu_after = prep_df_epa(tamu_18)
-
-
-dat_18 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
 # tamu_18 = pbp_no_OT %>% filter(
-#       year == 2018,
-#       offense %in% c("Kentucky", "Texas A&M"),
-#       defense %in% c("Kentucky", "Texas A&M"))
+#     year == 2018,
+#     offense %in% c("Clemson", "Texas A&M"),
+#    defense %in% c("Clemson", "Texas A&M")
+# )
+# epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
 
-epa_2018 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
+## Separate by Year into a list, then run EPA
+all_years = split(pbp_no_OT,pbp_no_OT$year)
+all_years_epa = lapply(all_years, calculate_epa,ep_model,fg_model)
+len = length(all_years_epa)
 
+for(i in 1:len){
+  df = all_years_epa[[i]]
+  hist(df$EPA)
+  Sys.sleep(5)
+}
 
-overall_epa = calculate_epa(pbp_no_OT,ep_mod = ep_model,fg_model)
+lapply(names(all_years_epa),function(x){
+  write.csv(all_years_epa[[x]],file=paste0("data/EPA_calcs_",x,".csv"))
+})
+
+lapply(names(all_years_epa),function(x){
+  saveRDS(all_years_epa[[x]],file=paste0("data/EPA_calcs_",x,".RDS"),compress = T)
+})

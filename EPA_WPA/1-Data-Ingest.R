@@ -6,7 +6,7 @@ source("6-Utils.R")
 
 ## Pull Schedule data
 
-df <- data.frame(years = 2010:2018)
+df <- data.frame(years = 2014:2018)
 schedule_df <- df %>% mutate(
   game_dat = purrr::map(years,cfb_game_info))
 schedule_df <- schedule_df %>% tidyr::unnest(game_dat)
@@ -21,15 +21,15 @@ drive_df <- df %>% mutate(
 drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 
 
-dat_merge <- drive_dat %>% merge(schedule_df_clean)
-colnames(dat_merge)[7] <- "drive_id"
-dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
-write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
+# dat_merge <- drive_dat %>% merge(schedule_df_clean)
+# colnames(dat_merge)[7] <- "drive_id"
+# dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
+#write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
 
-#dat_merge <- read_csv("data/clean_drives_data.csv")
+dat_merge <- read_csv("data/clean_drives_data.csv")
 
 week_vector = 1:15
-year_vector = 2010:2018
+year_vector = 2014:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
@@ -49,14 +49,13 @@ year_split = lapply(year_split,function(x){
 
 
 all_years = bind_rows(year_split) #%>% inner_join(drive)
+
 # some of these were mis-labelled
 # fix
-all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble")] <- "Fumble Return Touchdown"
+td_e = str_detect(all_years$play_text,"TD") | str_detect(all_years$play_text,"Touchdown") | str_detect(all_years$play_text,"TOUCHDOWN")
+all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e] <- paste0(all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e]," Touchdown")
 write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
 #all_years <- read_csv("data/raw_all_years.csv")
-
-
-
 
 drive_join_df = dat_merge %>% select(home_team,drive_id)
 # Figure out the adjusted yard-line, since the API has it in terms of home team
@@ -87,6 +86,8 @@ clean_drive = dat_merge %>% mutate(
     drive_result == 'FG' ~ 3,
     drive_result == 'MISSED FG TD' ~ -7,
     drive_result == 'KICKOFF RETURN TD' ~ -7,
+    drive_result == 'END OF HALF TD' ~ 7,
+    drive_result == "END OF GAME TD" ~ 7,
     drive_result == 'PUNT RETURN TD' ~ -7,
     drive_result == 'PUNT TD' ~ -7,
     drive_result == 'INT TD' ~ -7,
@@ -132,8 +133,15 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
     )
   )
 #%>%mutate(drive_id = as.numeric(drive_id))
-
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
 #write.csv(pbp_full_df,"data/full_pbp_df.csv")
+
+## ESPN doesn't report full games in some instances, and that really throws things off. 
+## get rid of these. Thanks
+check_for_full_game = pbp_full_df %>%  filter(period==4) %>% group_by(game_id,clock.minutes) %>% 
+  summarize(val=n()) %>% filter(clock.minutes == min(clock.minutes))
+keep_full_games = check_for_full_game %>% filter(clock.minutes==0) %>% pull(game_id)
+
+pbp_full_df = pbp_full_df %>% filter(game_id %in% keep_full_games)
 
 saveRDS(pbp_full_df,"data/pbp.rds")
