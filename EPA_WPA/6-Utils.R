@@ -56,6 +56,54 @@ find_next_score <- function(play_i,score_plays_i,dat_drive){
   }
 }
 
+prep_df_epa2 <- function(dat){
+  turnover_play_type = c(
+    'Fumble Recovery (Opponent)',
+    'Pass Interception Return',
+    'Interception Return Touchdown',
+    'Fumble Return Touchdown',
+    'Safety',
+    'Interception',
+    'Pass Interception'
+  )
+  
+  dat = dat %>%
+    mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
+    mutate(
+      id = as.numeric(id),
+      clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
+      raw_secs = clock.minutes * 60 + clock.seconds,
+      coef = home_team == defense,
+      adj_yd_line = 100 * (1 - coef) + (2 * coef - 1) * yard_line,
+      log_ydstogo = log(adj_yd_line),
+      half = ifelse(period <= 2, 1, 2),
+      new_yardline = 0,
+      new_down = 0,
+      new_distance = 0
+    )
+  
+  dat = dat %>% group_by(game_id,half) %>% 
+    dplyr::arrange(id,.by_group=TRUE) %>% 
+    mutate(
+      new_down = lead(down),
+      new_distance = lead(distance),
+      new_yardline = lead(adj_yd_line),
+      new_TimeSecsRem = lead(TimeSecsRem),
+      new_log_ydstogo = log(new_yardline),
+      # new under two minute warnings
+      new_Under_two = new_TimeSecsRem <= 120) %>% ungroup() %>% 
+    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% 
+    select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,new_Under_two)
+  
+  end_of_half_plays = is.na(dat$new_yardline)
+  dat$new_yardline[end_of_half_plays] <- 99
+  
+  colnames(dat) = gsub("new_","",colnames(dat))
+  colnames(dat)[4] <- "adj_yd_line"
+  
+  return(dat)
+}
+
 prep_df_epa <- function(dat) {
   # This function is used to calculate the EP - after the play
   # Then EPA = EP_After - EP_Before 

@@ -54,11 +54,15 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
     'Fumble Return Touchdown',
     'Safety',
     'Interception',
-    'Pass Interception'
+    'Pass Interception',
+    'Punt',
+    "Field Goal Missed",
+    "Blocked Field Goal"
   )
   
   off_TD = c('Passing Touchdown','Rushing Touchdown')
-  def_TD = c('Interception Return Touchdown','Fumble Return Touchdown')
+  def_TD = c('Interception Return Touchdown','Fumble Return Touchdown',
+             'Missed Field Goal Return Touchdown')
   
   
   pred_df = clean_pbp_dat %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo,Under_two)
@@ -73,8 +77,8 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   
   ## Prep for EP_after 
   prep_df_after = prep_df_epa(clean_pbp_dat) 
-  turnover_col = prep_df_after %>% pull(turnover)
-  prep_df_after = prep_df_after %>% select(-turnover)
+  #turnover_col = prep_df_after %>% pull(turnover)
+  #prep_df_after = prep_df_after %>% select(-turnover)
   
   ep_end = predict(ep_model,prep_df_after,type='prob')
   pred_df$ep_after = apply(ep_end, 1, function(row){
@@ -82,15 +86,14 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   })
   
   pred_df = cbind(clean_pbp_dat[,c("play_type","play_text")],pred_df)
-  pred_df$turnover = turnover_col
+  #pred_df$turnover = turnover_col
   
-  pred_df[(pred_df$play_type %in% off_TD) | (pred_df$play_type %in% def_TD),"ep_after"] = 7
-  pred_df[(pred_df$play_type %in% turnover_play_type) |
-            (pred_df$turnover == 1), "ep_after"] = -1 * pred_df[(pred_df$play_type %in% turnover_play_type) |
-                                                                  (pred_df$turnover == 1), "ep_after"]
+  pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
+  pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
+  pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"] = -1 * pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"]
   
   pred_df[pred_df$play_type=="Safety","ep_after"] = -2
-  
+  pred_df[pred_df$play_type=="Field Goal Good","ep_after"] = 3
   ## need to do something about the FG related plays using the field goal model here. s
   #
   
@@ -120,7 +123,16 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
   
   # add in the fg make prob into this 
   current_probs2 <- current_probs
-  current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
+  #current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
+  val = (1-make_fg_prob)
+  ind <- dim(current_probs2[fg_ind,])[1]
+  for(i in seq(1,ind)){
+    temp = current_probs2[fg_ind,]
+    temp[i,] = temp[i,] * val[i]
+  }
+  current_probs2[fg_ind,] =  temp
+  
+  
   # now to flip all the probs,
   current_probs2[fg_ind,"FG"] <- make_fg_prob + current_probs[fg_ind,"Opp FG"]
   current_probs2[fg_ind,"Opp FG"] <- current_probs[fg_ind,"FG"]
@@ -132,21 +144,22 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 }
 
 ## TAMU vs clemson was my benchmark 
-# tamu_18 = pbp_no_OT %>% filter(
-#    year == 2018,
-#    offense %in% c("Clemson", "Texas A&M"),
-#    defense %in% c("Clemson", "Texas A&M")
-# )
+ tamu_18 = pbp_no_OT %>% filter(
+    year == 2018,
+    offense %in% c("Clemson", "Texas A&M"),
+   defense %in% c("Clemson", "Texas A&M")
+ )
 # 
-# epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
+epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
 
-sort(unique(pbp_no_OT$year))
+tamu_after = prep_df_epa(tamu_18)
 
-dat_18 = pbp_no_OT %>% filter(year==2017)
-tamu_18 = pbp_no_OT %>% filter(
-      year == 2018,
-      offense %in% c("Kentucky", "Texas A&M"),
-      defense %in% c("Kentucky", "Texas A&M"))
+
+dat_18 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
+# tamu_18 = pbp_no_OT %>% filter(
+#       year == 2018,
+#       offense %in% c("Kentucky", "Texas A&M"),
+#       defense %in% c("Kentucky", "Texas A&M"))
 
 epa_2018 = pbp_no_OT %>% filter(year==2018) %>% calculate_epa(.,ep_model,fg_model)
 
