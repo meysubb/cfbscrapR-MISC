@@ -12,17 +12,35 @@ pbp_full_df <- readRDS(file = "data/pbp.rds")
 # Field Goal, No Play, Pass, Punt, Run, Sack, Spike
 
 # Remove  [8] "Extra Point Missed","Extra Point Good","Timeout","End of Half","End of Game","Uncategorized"
-remove_plays <- c("Extra Point Missed","Extra Point Good","Timeout","End of Half","End of Game","Uncategorized",
-                  "Penalty","Kickoff","Kickoff Return (Offense)","Kickoff Return Touchdown")
+remove_plays <-
+  c(
+    "Extra Point Missed",
+    "Extra Point Good",
+    "Timeout",
+    "End of Half",
+    "End of Game",
+    "Uncategorized",
+    "Penalty",
+    "Kickoff",
+    "Kickoff Return (Offense)",
+    "Kickoff Return Touchdown"
+  )
 
 pbp_no_OT <-
   pbp_full_df %>% filter(period <= 4, down > 0) %>%
   filter(!play_type %in% remove_plays) %>%
-  filter(!is.na(down),!is.na(raw_secs)) %>%
+  filter(!is.na(down), !is.na(raw_secs)) %>%
   filter(log_ydstogo != -Inf) %>%
   rename(TimeSecsRem = raw_secs) %>%
-  mutate(Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
-         Under_two = TimeSecsRem <= 120)
+  mutate(
+    Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
+    Goal_To_Go = ifelse(
+      str_detect(play_type, "Field Goal"),
+      distance == (adj_yd_line - 17),
+      distance == adj_yd_line
+    ),
+    Under_two = TimeSecsRem <= 120
+  )
 
 # fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
 # fg_no_OT <- pbp_no_OT[fg_contains,]
@@ -37,7 +55,7 @@ fg_model = readRDS("fg_model.rds")
 # need
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
-#                               adj_yd_line*down, data = pbp_no_OT, maxit = 300)
+#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
 # saveRDS(ep_model,"ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("ep_model.rds")
@@ -65,7 +83,7 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
              'Missed Field Goal Return Touchdown')
   
   
-  pred_df = clean_pbp_dat %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo,Under_two)
+  pred_df = clean_pbp_dat %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo,Under_two,Goal_To_Go)
   
   # ep_start
   ep_start = as.data.frame(predict(ep_mod,pred_df,type='prob'))
@@ -149,7 +167,7 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 #     offense %in% c("Clemson", "Texas A&M"),
 #    defense %in% c("Clemson", "Texas A&M")
 # )
-# epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
+#epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
 
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT,pbp_no_OT$year)

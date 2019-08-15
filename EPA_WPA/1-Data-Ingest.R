@@ -14,6 +14,7 @@ colnames(schedule_df)[2] <- "game_id"
 
 ## clean schedule data, remove FCS games
 schedule_df_clean <- schedule_df %>% tidyr::drop_na(home_conference) %>% tidyr::drop_na(away_conference)
+saveRDS(schedule_df_clean,"data/game_schedule.RDS")
 
 ## Drive data
 drive_df <- df %>% mutate(

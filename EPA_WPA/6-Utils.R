@@ -89,6 +89,7 @@ prep_df_epa2 <- function(dat){
       new_yardline = lead(adj_yd_line),
       new_TimeSecsRem = lead(TimeSecsRem),
       new_log_ydstogo = log(new_yardline),
+      new_Goal_To_Go = lead(Goal_To_Go),
       # new under two minute warnings
       new_Under_two = new_TimeSecsRem <= 120) %>% ungroup() %>% 
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) 
@@ -103,7 +104,16 @@ prep_df_epa2 <- function(dat){
     dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
   }
   
-  dat = dat %>% select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,new_Under_two,end_half_game) 
+  dat = dat %>% select(
+    new_TimeSecsRem,
+    new_down,
+    new_distance,
+    new_yardline,
+    new_log_ydstogo,
+    new_Goal_To_Go,
+    new_Under_two,
+    end_half_game
+  ) 
   colnames(dat) = gsub("new_","",colnames(dat))
   colnames(dat)[4] <- "adj_yd_line"
   
