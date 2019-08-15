@@ -49,4 +49,11 @@ tamu_18 = epa_w %>% filter(
    defense %in% c("Clemson", "Texas A&M")
 )
 
-tamu_18$wp = predict(wp_model,newdata = tamu_18)
+tamu_18$wp = predict(wp_model,newdata = tamu_18,type="response")
+
+tamu_18 = tamu_18 %>% filter(
+  home_team_wpa = if_else(offense == home_team,
+                                 wpa, -wpa),
+  away_team_wpa = if_else(defense == home_team,
+                          -wpa,wpa)
+)
