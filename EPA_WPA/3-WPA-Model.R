@@ -51,7 +51,8 @@ tamu_18 = epa_w %>% filter(
 
 tamu_18$wp = predict(wp_model,newdata = tamu_18,type="response")
 
-tamu_18 = tamu_18 %>% filter(
+tamu_18_s = tamu_18 %>% mutate(
+  wpa = lead(wp) - wp,
   home_team_wpa = if_else(offense == home_team,
                                  wpa, -wpa),
   away_team_wpa = if_else(defense == home_team,
