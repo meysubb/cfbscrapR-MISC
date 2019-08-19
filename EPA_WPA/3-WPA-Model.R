@@ -35,27 +35,44 @@ epa_w = epa %>% left_join(win_df) %>%
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
   )
 
-library(parallel)
-cl <- makeCluster(detectCores()-1)
+# library(parallel)
+# cl <- makeCluster(detectCores()-1)
+# 
+# 
+# wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) +
+#                         s(TimeSecsRem, by = half) +
+#                         s(ExpScoreDiff_Time_Ratio) +
+#                         Under_two*half +
+#                         Under_two*half,
+#                       data = epa_w, family = "binomial", cluster=cl)
+# 
+# save(wp_model, file="data/wp_model.RData")
+# stopCluster(cl)
 
-
-wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) + 
-                        s(TimeSecsRem, by = half) + 
-                        s(ExpScoreDiff_Time_Ratio) + 
-                        Under_two*half + 
-                        Under_two*half,
-                      data = epa_w, family = "binomial", cluster=cl)
-
-save(wp_model, file="data/wp_model.RData")
-stopCluster(cl)
-
+#load("wp_model.RData")
+library(mgcv)
 create_wpa <- function(df,wp_mod){
-  df$wp = predict(wp_mod,newdata=df,type="response")
+  Off_Win_Prob = predict(wp_mod,newdata=df,type="response")
   df = df %>% mutate(
-    wpa = lead(wp) - wp,
+    wp = Off_Win_Prob,
+    def_wp = 1-wp,
+    home_wp = if_else(offense == home_team,
+                      wp,def_wp),
+    away_wp = if_else(offense != home_team,
+                      wp,def_wp),
+    # ball changes hand
+    change_of_poss = ifelse(offense == lead(offense),0,1),
+    change_of_poss = ifelse(is.na(change_of_poss),0,change_of_poss),
+    # base wpa
+    wpa_base = lead(wp) - wp,
+    # account for turnover
+    wpa_change = ifelse(change_of_poss==1,(1-lead(wp))-wp,wpa_base),
+    wpa = wpa_change,
     home_team_wpa = if_else(offense == home_team,
                             wpa, -wpa),
-    away_team_wpa = -home_team_wpa,
+    # try a different way of calculating away team
+    away_team_wpa = if_else(offense != home_team,
+                            wpa,-wpa),
     cum_home_wpa = cumsum(home_team_wpa),
     cum_away_wpa = cumsum(away_team_wpa),
     final_home_wpa = 0.5 + cum_home_wpa,
@@ -128,6 +145,8 @@ tamu_18 = epa_w %>% filter(
   defense %in% c("Clemson", "Texas A&M")
 )
 tamu_wpa = tamu_18 %>% create_wpa(wp_mod=wp_model)
+
+tamu_read = tamu_wpa %>% select(offense,defense,offense_score,defense_score,play_text,EPA,wp,def_wp,wpa_change,final_home_wpa,final_away_wpa)
 ## Need to automate this last part
 tamu_wpa[is.na(tamu_wpa$final_away_wpa),"final_away_wpa"] <- 1
 tamu_wpa[is.na(tamu_wpa$final_home_wpa),"final_home_wpa"] <- 0
@@ -165,4 +184,23 @@ um_wpa[is.na(um_wpa$final_away_wpa),"final_away_wpa"] <- 1
 away_color <- c(OSU="#BB0000")
 home_color <- c(UM="#00274C")
 plot_func(um_wpa,away_color,home_color,year=2017)
+
+
+tamu_ucla = epa_w %>% filter(
+  year ==2017,
+  offense %in% c("UCLA", "Texas A&M"),
+  defense %in% c("UCLA", "Texas A&M")
+)
+tamu_wpa = tamu_ucla %>% create_wpa(wp_mod=wp_model)
+
+#tamu_wpa_16 <- tamu_wpa %>% filter(year==2016)
+tamu_wpa_17 <- tamu_wpa %>% filter(year==2017)
+
+tamu_wpa_17[is.na(tamu_wpa_17$final_away_wpa),"final_away_wpa"] <- 0
+tamu_wpa_17[is.na(tamu_wpa_17$final_home_wpa),"final_home_wpa"] <- 1
+away_color <- c(TAMU="#500000")
+home_color <- c(UCLA="#2D68C4")
+
+
+plot_func(tamu_wpa_17,away_color,home_color,year=2017)
 

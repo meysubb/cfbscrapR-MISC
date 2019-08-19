@@ -61,7 +61,7 @@ write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
 drive_join_df = dat_merge %>% select(home_team,drive_id)
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
-clean_all_years = all_years %>% inner_join(drive_join_df,by=c('drive_id')) %>%
+clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inner_join(drive_join_df,by=c('drive_id')) %>%
   arrange(id) %>%
   mutate_at(vars(clock.minutes, clock.seconds), ~replace_na(., 0)) %>%
   mutate(
