@@ -29,7 +29,7 @@ epa_w = epa %>% left_join(win_df) %>%
     score_diff = ifelse(offense==home_team,offense_score - defense_score,defense_score-offense_score),
     home_EPA = ifelse(offense==home_team,EPA,-EPA),
     away_EPA = -home_EPA,
-    ExpScoreDiff = score_diff + home_EPA,
+    ExpScoreDiff = score_diff + ep_before,
     Win_Indicator = as.factor(ifelse(offense==winner,1,0)),
     half = as.factor(half),
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
@@ -49,11 +49,11 @@ epa_w = epa %>% left_join(win_df) %>%
 # save(wp_model, file="data/wp_model.RData")
 # stopCluster(cl)
 
-#load("wp_model.RData")
+load("wp_model.RData")
 library(mgcv)
 create_wpa <- function(df,wp_mod){
   Off_Win_Prob = predict(wp_mod,newdata=df,type="response")
-  df = df %>% mutate(
+  df2 = df %>% mutate(
     wp = Off_Win_Prob,
     def_wp = 1-wp,
     home_wp = if_else(offense == home_team,
@@ -64,9 +64,10 @@ create_wpa <- function(df,wp_mod){
     change_of_poss = ifelse(offense == lead(offense),0,1),
     change_of_poss = ifelse(is.na(change_of_poss),0,change_of_poss),
     # base wpa
-    wpa_base = lead(wp) - wp,
+    lead_wp = lead(wp),
+    wpa_base = lead_wp - wp,
     # account for turnover
-    wpa_change = ifelse(change_of_poss==1,(1-lead(wp))-wp,wpa_base),
+    wpa_change = ifelse(change_of_poss==1,(1-lead_wp)-wp,wpa_base),
     wpa = wpa_change,
     home_team_wpa = if_else(offense == home_team,
                             wpa, -wpa),
@@ -75,11 +76,11 @@ create_wpa <- function(df,wp_mod){
                             wpa,-wpa),
     cum_home_wpa = cumsum(home_team_wpa),
     cum_away_wpa = cumsum(away_team_wpa),
-    final_home_wpa = 0.5 + cum_home_wpa,
-    final_away_wpa = 0.5 + cum_away_wpa,
+    final_home_wpa =  0.5 +  cum_home_wpa,
+    final_away_wpa =  0.5 +  cum_away_wpa,
     adj_TimeSecsRem = ifelse(half==1,1800+TimeSecsRem,TimeSecsRem)
   )
-  return(df)
+  return(df2)
 }
 
 
@@ -146,7 +147,23 @@ tamu_18 = epa_w %>% filter(
 )
 tamu_wpa = tamu_18 %>% create_wpa(wp_mod=wp_model)
 
-tamu_read = tamu_wpa %>% select(offense,defense,offense_score,defense_score,play_text,EPA,wp,def_wp,wpa_change,final_home_wpa,final_away_wpa)
+tamu_read = tamu_wpa %>% select(
+  offense,
+  defense,
+  offense_score,
+  defense_score,
+  play_text,
+  EPA,
+  wp,
+  def_wp,
+  wpa_change,
+  home_team_wpa,
+  away_team
+  cum_home_wpa,
+  cum_away_wpa,
+  final_home_wpa,
+  final_away_wpa
+)
 ## Need to automate this last part
 tamu_wpa[is.na(tamu_wpa$final_away_wpa),"final_away_wpa"] <- 1
 tamu_wpa[is.na(tamu_wpa$final_home_wpa),"final_home_wpa"] <- 0
