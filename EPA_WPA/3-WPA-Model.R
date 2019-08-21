@@ -26,7 +26,7 @@ epa$EPA <- epa$ep_after - epa$ep_before
 
 epa_w = epa %>% left_join(win_df) %>% 
   mutate(
-    score_diff = ifelse(offense==home_team,offense_score - defense_score,defense_score-offense_score),
+    score_diff = offense_score - defense_score,
     home_EPA = ifelse(offense==home_team,EPA,-EPA),
     away_EPA = -home_EPA,
     ExpScoreDiff = score_diff + ep_before,
@@ -76,8 +76,8 @@ create_wpa <- function(df,wp_mod){
                             wpa,-wpa),
     cum_home_wpa = cumsum(home_team_wpa),
     cum_away_wpa = cumsum(away_team_wpa),
-    final_home_wpa =  0.5 +  cum_home_wpa,
-    final_away_wpa =  0.5 +  cum_away_wpa,
+    final_home_wpa =  0.5 + cum_home_wpa,
+    final_away_wpa =  0.5 + cum_away_wpa,
     adj_TimeSecsRem = ifelse(half==1,1800+TimeSecsRem,TimeSecsRem)
   )
   return(df2)
@@ -115,30 +115,6 @@ plot_func <- function(dat,away_color,home_color,year){
   return(p1)
 }
 
-
-
-# ggplot(tamu_plot,aes(x=adj_TimeSecsRem,y=wpa,color=team)) + 
-#   geom_line(size=2) + 
-#   geom_hline(yintercept = 0.5, color = "gray", linetype = "dashed") + 
-#   scale_x_reverse(breaks = seq(0, 3600, 300)) + 
-#   scale_color_manual(labels = c("CLE","TAMU"),
-#                      values = c("orange2","firebrick4"),
-#                      guide = FALSE)  +
-#   annotate("text", x = 3000, y = .75, label = "CLE", color = "orange2", size = 8) + 
-#   annotate("text", x = 3000, y = .25, label = "TAMU", color = "firebrick4", size = 8) +
-#   scale_y_continuous(limits=c(0,1)) + 
-#   geom_vline(xintercept = 900, linetype = "dashed", black) + 
-#   geom_vline(xintercept = 1800, linetype = "dashed", black) + 
-#   geom_vline(xintercept = 2700, linetype = "dashed", black) + 
-#   geom_vline(xintercept = 0, linetype = "dashed", black) + 
-#   labs(
-#     x = "Time Remaining (seconds)",
-#     y = "Win Probability",
-#     title = "Week 2 (2018) Win Probability Chart",
-#     subtitle = "Texas A&M vs. Clemson",
-#     caption = "Data from collegefootballdataAPI, @msubbaiah1"
-#   ) + theme_bw(base_size = 16)
-
 ## Test plot of TAMU vs Clemson WPA
 tamu_18 = epa_w %>% filter(
   year == 2018,
@@ -147,23 +123,6 @@ tamu_18 = epa_w %>% filter(
 )
 tamu_wpa = tamu_18 %>% create_wpa(wp_mod=wp_model)
 
-tamu_read = tamu_wpa %>% select(
-  offense,
-  defense,
-  offense_score,
-  defense_score,
-  play_text,
-  EPA,
-  wp,
-  def_wp,
-  wpa_change,
-  home_team_wpa,
-  away_team
-  cum_home_wpa,
-  cum_away_wpa,
-  final_home_wpa,
-  final_away_wpa
-)
 ## Need to automate this last part
 tamu_wpa[is.na(tamu_wpa$final_away_wpa),"final_away_wpa"] <- 1
 tamu_wpa[is.na(tamu_wpa$final_home_wpa),"final_home_wpa"] <- 0
@@ -209,8 +168,6 @@ tamu_ucla = epa_w %>% filter(
   defense %in% c("UCLA", "Texas A&M")
 )
 tamu_wpa = tamu_ucla %>% create_wpa(wp_mod=wp_model)
-
-#tamu_wpa_16 <- tamu_wpa %>% filter(year==2016)
 tamu_wpa_17 <- tamu_wpa %>% filter(year==2017)
 
 tamu_wpa_17[is.na(tamu_wpa_17$final_away_wpa),"final_away_wpa"] <- 0
@@ -221,3 +178,13 @@ home_color <- c(UCLA="#2D68C4")
 
 plot_func(tamu_wpa_17,away_color,home_color,year=2017)
 
+uva_vtech = epa_w %>% filter(
+  year == 2018,
+  offense %in% c("Virginia","Virginia Tech"),
+  defense %in% c("Virginia","Virginia Tech"  )
+) %>% create_wpa(wp_mod = wp_model)
+
+home_color <- c(VT="#500000")
+away_color <- c(UVA="#BF5700")
+
+plot_func(uva_vtech,away_color,home_color,year=2018)
