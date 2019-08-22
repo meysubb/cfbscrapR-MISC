@@ -47,18 +47,18 @@ pbp_no_OT <-
 # 
 # fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
 #                        data = fg_no_OT, family = "binomial")
-# saveRDS(fg_model,"fg_model.rds")
+# saveRDS(fg_model,"models/fg_model.rds")
 # Load FG Model
-fg_model = readRDS("fg_model.rds")
+fg_model = readRDS("models/fg_model.rds")
 ##+ Under_TwoMinute_Warning
 ## Create a weighting factor
 # need
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
-# saveRDS(ep_model,"ep_model.rds")
+# saveRDS(ep_model,"models/ep_model.rds")
 # Load EPA Model
-ep_model = readRDS("ep_model.rds")
+ep_model = readRDS("models/ep_model.rds")
 
 
 ## At this point, let's create a function to predict EP_before and EP_after, and calculate EPA
@@ -97,7 +97,6 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   prep_df_after = prep_df_epa2(clean_pbp_dat) 
   #turnover_col = prep_df_after %>% pull(turnover)
   #prep_df_after = prep_df_after %>% select(-turnover)
-  
   ep_end = predict(ep_model,prep_df_after,type='prob')
   pred_df$ep_after = apply(ep_end, 1, function(row){
     sum(row * weights)
@@ -161,17 +160,15 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
   return(current_probs2)
 }
 
-## TAMU vs clemson was my benchmark 
-# tamu_18 = pbp_no_OT %>% filter(
-#     year == 2018,
-#     offense %in% c("Clemson", "Texas A&M"),
-#    defense %in% c("Clemson", "Texas A&M")
-# )
-#epa_tamu_clemson = calculate_epa(tamu_18,ep_model,fg_model)
-
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT,pbp_no_OT$year)
-all_years_epa = lapply(all_years, calculate_epa,ep_model,fg_model)
+all_years_epa = lapply(all_years, function(x){
+  year = unique(x$year)
+  print(year)
+  val = calculate_epa(x,ep_model,fg_model)
+  return(val)
+})
+
 len = length(all_years_epa)
 
 for(i in 1:len){
@@ -181,9 +178,9 @@ for(i in 1:len){
 }
 
 lapply(names(all_years_epa),function(x){
-  write.csv(all_years_epa[[x]],file=paste0("data/EPA_calcs_",x,".csv"))
+  write.csv(all_years_epa[[x]],file=paste0("data/csv/EPA_calcs_",x,".csv"))
 })
 
 lapply(names(all_years_epa),function(x){
-  saveRDS(all_years_epa[[x]],file=paste0("data/EPA_calcs_",x,".RDS"),compress = T)
+  saveRDS(all_years_epa[[x]],file=paste0("data/rds/EPA_calcs_",x,".RDS"),compress = T)
 })

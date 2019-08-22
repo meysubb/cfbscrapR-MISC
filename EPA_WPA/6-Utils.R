@@ -104,6 +104,10 @@ prep_df_epa2 <- function(dat){
     dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
   }
   
+  missing_yd_line = dat$new_yardline == 0
+  dat$new_yardline[missing_yd_line] = 99
+  dat$new_log_ydstogo[missing_yd_line] = log(99)
+  
   dat = dat %>% select(
     new_TimeSecsRem,
     new_down,
