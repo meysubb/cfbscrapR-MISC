@@ -4,9 +4,9 @@ library(readr)
 library(stringr)
 source("6-Utils.R")
 
-epa_16 <- readRDS("data/EPA_calcs_2016.RDS")
-epa_17 <- readRDS("data/EPA_calcs_2017.RDS")
-epa_18 <- readRDS("data/EPA_calcs_2018.RDS")
+epa_16 <- readRDS("data/rds/EPA_calcs_2016.RDS")
+epa_17 <- readRDS("data/rds/EPA_calcs_2017.RDS")
+epa_18 <- readRDS("data/rds/EPA_calcs_2018.RDS")
 
 epa <- bind_rows(epa_16,epa_17,epa_18)
 
@@ -35,34 +35,42 @@ epa_w = epa %>% left_join(win_df) %>%
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
   )
 
-# library(parallel)
-# cl <- makeCluster(detectCores()-1)
+library(parallel)
+cl <- makeCluster(detectCores()-1)
 # 
 # 
 # wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) +
 #                         s(TimeSecsRem, by = half) +
 #                         s(ExpScoreDiff_Time_Ratio) +
-#                         Under_two*half +
 #                         Under_two*half,
 #                       data = epa_w, family = "binomial", cluster=cl)
 # 
 # save(wp_model, file="data/wp_model.RData")
+
+# wp_model2 = nnet::multinom(Win_Indicator ~ ExpScoreDiff +
+#                                           TimeSecsRem*half +
+#                                           ExpScoreDiff_Time_Ratio +
+#                                           Under_two*half,
+#                                         data = epa_w, family = "binomial", cluster=cl,maxit = 300)
 # stopCluster(cl)
+# save(wp_model2, file="data/wp_model2.RData")
 
 load("wp_model.RData")
 library(mgcv)
 create_wpa <- function(df,wp_mod){
-  Off_Win_Prob = predict(wp_mod,newdata=df,type="response")
+  Off_Win_Prob = predict(wp_mod,newdata=df,type="prob")
   df2 = df %>% mutate(
     wp = Off_Win_Prob,
     def_wp = 1-wp,
     home_wp = if_else(offense == home_team,
                       wp,def_wp),
     away_wp = if_else(offense != home_team,
-                      wp,def_wp),
+                      wp,def_wp)) %>% group_by(half) %>% 
+    mutate(
     # ball changes hand
     change_of_poss = ifelse(offense == lead(offense),0,1),
-    change_of_poss = ifelse(is.na(change_of_poss),0,change_of_poss),
+    change_of_poss = ifelse(is.na(change_of_poss),0,change_of_poss)) %>% ungroup() %>% 
+    mutate(
     # base wpa
     lead_wp = lead(wp),
     wpa_base = lead_wp - wp,

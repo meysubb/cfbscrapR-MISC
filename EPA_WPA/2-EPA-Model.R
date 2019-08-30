@@ -177,6 +177,10 @@ for(i in 1:len){
   Sys.sleep(5)
 }
 
+### Figure out who is who, so you can attribute players to it. 
+
+
+
 lapply(names(all_years_epa),function(x){
   write.csv(all_years_epa[[x]],file=paste0("data/csv/EPA_calcs_",x,".csv"))
 })
