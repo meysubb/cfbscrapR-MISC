@@ -7,8 +7,9 @@ source("6-Utils.R")
 epa_16 <- readRDS("data/rds/EPA_calcs_2016.RDS")
 epa_17 <- readRDS("data/rds/EPA_calcs_2017.RDS")
 epa_18 <- readRDS("data/rds/EPA_calcs_2018.RDS")
+epa_19 <- readRDS("data/rds/EPA_calcs_2019.RDS")
 
-epa <- bind_rows(epa_16,epa_17,epa_18)
+epa <- bind_rows(epa_16,epa_17,epa_18,epa_19)
 
 ## Game ID 
 ## to see who won?
@@ -35,8 +36,8 @@ epa_w = epa %>% left_join(win_df) %>%
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
   )
 
-library(parallel)
-cl <- makeCluster(detectCores()-1)
+#library(parallel)
+#cl <- makeCluster(detectCores()-1)
 # 
 # 
 # wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) +
@@ -45,20 +46,13 @@ cl <- makeCluster(detectCores()-1)
 #                         Under_two*half,
 #                       data = epa_w, family = "binomial", cluster=cl)
 # 
-# save(wp_model, file="data/wp_model.RData")
-
-# wp_model2 = nnet::multinom(Win_Indicator ~ ExpScoreDiff +
-#                                           TimeSecsRem*half +
-#                                           ExpScoreDiff_Time_Ratio +
-#                                           Under_two*half,
-#                                         data = epa_w, family = "binomial", cluster=cl,maxit = 300)
 # stopCluster(cl)
-# save(wp_model2, file="data/wp_model2.RData")
+# save(wp_model, file="data/wp_model.RData")
 
 load("wp_model.RData")
 library(mgcv)
 create_wpa <- function(df,wp_mod){
-  Off_Win_Prob = predict(wp_mod,newdata=df,type="prob")
+  Off_Win_Prob = as.vector(predict(wp_mod,newdata=df,type="response"))
   df2 = df %>% mutate(
     wp = Off_Win_Prob,
     def_wp = 1-wp,
@@ -67,26 +61,24 @@ create_wpa <- function(df,wp_mod){
     away_wp = if_else(offense != home_team,
                       wp,def_wp)) %>% group_by(half) %>% 
     mutate(
-    # ball changes hand
-    change_of_poss = ifelse(offense == lead(offense),0,1),
-    change_of_poss = ifelse(is.na(change_of_poss),0,change_of_poss)) %>% ungroup() %>% 
+      # ball changes hand
+      change_of_poss = ifelse(offense == lead(offense), 0, 1),
+      change_of_poss = ifelse(is.na(change_of_poss), 0, change_of_poss)) %>% ungroup() %>% 
     mutate(
-    # base wpa
-    lead_wp = lead(wp),
-    wpa_base = lead_wp - wp,
-    # account for turnover
-    wpa_change = ifelse(change_of_poss==1,(1-lead_wp)-wp,wpa_base),
-    wpa = wpa_change,
-    home_team_wpa = if_else(offense == home_team,
-                            wpa, -wpa),
-    # try a different way of calculating away team
-    away_team_wpa = if_else(offense != home_team,
-                            wpa,-wpa),
-    cum_home_wpa = cumsum(home_team_wpa),
-    cum_away_wpa = cumsum(away_team_wpa),
-    final_home_wpa =  0.5 + cum_home_wpa,
-    final_away_wpa =  0.5 + cum_away_wpa,
-    adj_TimeSecsRem = ifelse(half==1,1800+TimeSecsRem,TimeSecsRem)
+      # base wpa
+      end_of_half = ifelse(half == lead(half),0,1),
+      lead_wp = lead(wp),
+      wpa_base = lead_wp - wp,
+      # account for turnover
+      wpa_change = ifelse(change_of_poss == 1, (1 - lead_wp) - wp, wpa_base),
+      wpa = ifelse(end_of_half==1,0,wpa_change),
+      home_wp_post = ifelse(offense == home_team,
+                            home_wp + wpa,
+                            home_wp - wpa),
+      away_wp_post = ifelse(offense != home_team,
+                            away_wp + wpa,
+                            away_wp - wpa),
+      adj_TimeSecsRem = ifelse(half == 1, 1800 + TimeSecsRem, TimeSecsRem)
   )
   return(df2)
 }
@@ -97,9 +89,9 @@ plot_func <- function(dat,away_color,home_color,year){
   home_team <- names(home_color)
   names(away_color) <- NULL
   names(home_color) <- NULL
-  plot_df <- dat %>% select(final_home_wpa,final_away_wpa,adj_TimeSecsRem) %>% gather(team,wpa,-adj_TimeSecsRem)
+  plot_df <- dat %>% select(home_wp,away_wp,adj_TimeSecsRem) %>% gather(team,wp,-adj_TimeSecsRem)
   
-  p1 = ggplot(plot_df,aes(x=adj_TimeSecsRem,y=wpa,color=team)) + 
+  p1 = ggplot(plot_df,aes(x=adj_TimeSecsRem,y=wp,color=team)) + 
     geom_line(size=2) + 
     geom_hline(yintercept = 0.5, color = "gray", linetype = "dashed") + 
     scale_x_reverse(breaks = seq(0, 3600, 300)) + 
@@ -132,8 +124,8 @@ tamu_18 = epa_w %>% filter(
 tamu_wpa = tamu_18 %>% create_wpa(wp_mod=wp_model)
 
 ## Need to automate this last part
-tamu_wpa[is.na(tamu_wpa$final_away_wpa),"final_away_wpa"] <- 1
-tamu_wpa[is.na(tamu_wpa$final_home_wpa),"final_home_wpa"] <- 0
+tamu_wpa[is.na(tamu_wpa$away_wp),"final_away_wpa"] <- 1
+tamu_wpa[is.na(tamu_wpa$home_wp),"final_home_wpa"] <- 0
 away_color <- c(CLE="#F56600")
 home_color <- c(TAMU="#500000")
 
@@ -149,8 +141,8 @@ ut_ou = epa_w %>% filter(
   defense %in% c("Oklahoma","Texas")
 )
 ut_wpa = ut_ou %>% create_wpa(wp_mod=wp_model)
-ut_wpa[is.na(ut_wpa$final_home_wpa),"final_home_wpa"] <- 0
-ut_wpa[is.na(ut_wpa$final_away_wpa),"final_away_wpa"] <- 1
+ut_wpa[is.na(ut_wpa$home_wp),"final_home_wpa"] <- 0
+ut_wpa[is.na(ut_wpa$away_wp),"final_away_wpa"] <- 1
 away_color <- c(UT="#BF5700")
 home_color <- c(OU="#841617")
 plot_func(ut_wpa,away_color,home_color,year="2018 - Week 6")
@@ -163,11 +155,11 @@ um_osu = epa_w %>% filter(
   defense %in% c("Michigan","Ohio State")
 )
 um_wpa = um_osu %>% create_wpa(wp_mod=wp_model)
-um_wpa[is.na(um_wpa$final_home_wpa),"final_home_wpa"] <- 0
-um_wpa[is.na(um_wpa$final_away_wpa),"final_away_wpa"] <- 1
+um_wpa[is.na(um_wpa$home_wp),"final_home_wpa"] <- 0
+um_wpa[is.na(um_wpa$away_wp),"final_away_wpa"] <- 1
 away_color <- c(OSU="#BB0000")
 home_color <- c(UM="#00274C")
-plot_func(um_wpa,away_color,home_color,year=2017)
+plot_func(um_wpa,away_color,home_color,year="2017")
 
 
 tamu_ucla = epa_w %>% filter(
@@ -178,21 +170,30 @@ tamu_ucla = epa_w %>% filter(
 tamu_wpa = tamu_ucla %>% create_wpa(wp_mod=wp_model)
 tamu_wpa_17 <- tamu_wpa %>% filter(year==2017)
 
-tamu_wpa_17[is.na(tamu_wpa_17$final_away_wpa),"final_away_wpa"] <- 0
-tamu_wpa_17[is.na(tamu_wpa_17$final_home_wpa),"final_home_wpa"] <- 1
+tamu_wpa_17[is.na(tamu_wpa_17$away_wp),"final_away_wpa"] <- 0
+tamu_wpa_17[is.na(tamu_wpa_17$home_wp),"final_home_wpa"] <- 1
 away_color <- c(TAMU="#500000")
 home_color <- c(UCLA="#2D68C4")
 
 
-plot_func(tamu_wpa_17,away_color,home_color,year=2017)
+plot_func(tamu_wpa_17,away_color,home_color,year="2017")
 
-uva_vtech = epa_w %>% filter(
-  year == 2018,
-  offense %in% c("Virginia","Virginia Tech"),
-  defense %in% c("Virginia","Virginia Tech"  )
-) %>% create_wpa(wp_mod = wp_model)
+## Miami vs Florida _ 2019
 
-home_color <- c(VT="#500000")
-away_color <- c(UVA="#BF5700")
+clem_gt = epa_w %>% filter(
+  year ==2019,
+  offense %in% c("Clemson", "Georgia Tech"),
+  defense %in% c("Clemson", "Georgia Tech")
+)
 
-plot_func(uva_vtech,away_color,home_color,year=2018)
+clem_wpa = clem_gt %>% create_wpa(wp_mod=wp_model)
+
+clem_wpa[is.na(clem_wpa$home_wp),"final_away_wpa"] <- 1
+clem_wpa[is.na(clem_wpa$away_wp),"final_home_wpa"] <- 0
+
+away_color <- c(GT="#B3A369")
+home_color <- c(CLE="#F56600")
+
+plot_func(clem_wpa,away_color,home_color,year="2019")
+
+

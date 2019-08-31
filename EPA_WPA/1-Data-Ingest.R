@@ -6,7 +6,7 @@ source("6-Utils.R")
 
 ## Pull Schedule data
 
-df <- data.frame(years = 2010:2018)
+df <- data.frame(years = 2010:2019)
 schedule_df <- df %>% mutate(
   game_dat = purrr::map(years,cfb_game_info))
 schedule_df <- schedule_df %>% tidyr::unnest(game_dat)
@@ -32,6 +32,7 @@ dat_merge <- read_csv("data/clean_drives_data.csv")
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
+weekly_year_df <- rbind(weekly_year_df,c(2019,1))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
@@ -138,7 +139,7 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
   )
 clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
-# write.csv(pbp_full_df,"data/full_pbp_df.csv")
+#write.csv(pbp_full_df,"data/full_pbp_df.csv")
 
 ## ESPN doesn't report full games in some instances, and that really throws things off. 
 ## get rid of these. Thanks
