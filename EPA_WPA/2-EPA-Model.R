@@ -95,8 +95,9 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   
   ## Prep for EP_after 
   prep_df_after = prep_df_epa2(clean_pbp_dat) 
-  #turnover_col = prep_df_after %>% pull(turnover)
-  #prep_df_after = prep_df_after %>% select(-turnover)
+  # prep_df_after = prep_df_epa(clean_pbp_dat) 
+  # turnover_col = prep_df_after %>% pull(turnover)
+  # prep_df_after = prep_df_after %>% select(-turnover)
   ep_end = predict(ep_model,prep_df_after,type='prob')
   pred_df$ep_after = apply(ep_end, 1, function(row){
     sum(row * weights)

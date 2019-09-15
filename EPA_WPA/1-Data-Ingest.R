@@ -16,7 +16,7 @@ colnames(schedule_df)[2] <- "game_id"
 schedule_df_clean <- schedule_df %>% tidyr::drop_na(home_conference) %>% tidyr::drop_na(away_conference)
 saveRDS(schedule_df_clean,"data/game_schedule.RDS")
 
-schedule_df_clean <- readRDS("data/game_schedule.RDS")
+# schedule_df_clean <- readRDS("data/game_schedule.RDS")
 
 ## Drive data
 drive_df <- df %>% mutate(
@@ -34,7 +34,7 @@ dat_merge <- read_csv("data/clean_drives_data.csv")
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-weekly_year_df <- rbind(weekly_year_df,c(2019,1))
+weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
@@ -141,7 +141,7 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
   )
 clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
-#write.csv(pbp_full_df,"data/full_pbp_df.csv")
+# write.csv(pbp_full_df,"data/full_pbp_df.csv")
 
 ## ESPN doesn't report full games in some instances, and that really throws things off. 
 ## get rid of these. Thanks
