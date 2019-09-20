@@ -47,7 +47,7 @@ epa_w = epa %>% left_join(win_df) %>%
 #                       data = epa_w, family = "binomial", cluster=cl)
 # 
 # stopCluster(cl)
-save(wp_model, file="data/wp_model.RData")
+#save(wp_model, file="data/wp_model.RData")
 
 load("wp_model.RData")
 library(mgcv)
@@ -128,16 +128,16 @@ plot_func <- function(dat,away_color,home_color,year,winner="home"){
   return(p1)
 }
 
-byu_usc <- epa_w %>% filter(
+pitt_penn_st <- epa_w %>% filter(
   year == 2019,
-  offense %in% c("BYU","USC"),
-  defense %in% c("BYU","USC")
+  offense %in% c("Pittsburgh","Penn State"),
+  defense %in% c("Pittsburgh","Penn State")
 ) %>% create_wpa(wp_mod = wp_model)
 
-away_color <- c(USC="#990000")
-home_color <- c(BYU="#002E5D")
+away_color <- c(PITT="#FFB81C")
+home_color <- c(PSU="#041E42")
 
-plot_func(byu_usc,away_color,home_color,year=2019,winner="home")
+plot_func(pitt_penn_st,away_color,home_color,year=2019,winner="home")
 
 
 uk_uf <- epa_w %>% filter(
@@ -158,7 +158,7 @@ iowa_isu <- epa_w %>% filter(
 ) %>% create_wpa(wp_mod = wp_model)
 
 home_color <- c(ISU="#C8102E")
-away_color <- c(IOWA="#FFCD00")
+away_color <- c(IOWA="#FA4616")
 
 plot_func(iowa_isu,away_color,home_color,year=2019,winner="away")  
 

@@ -78,9 +78,12 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
     "Blocked Field Goal"
   )
   
-  off_TD = c('Passing Touchdown','Rushing Touchdown')
+  off_TD = c('Passing Touchdown','Rushing Touchdown',"Fumble Recovery (Own) Touchdown","Pass Reception Touchdown")
   def_TD = c('Interception Return Touchdown','Fumble Return Touchdown',
-             'Missed Field Goal Return Touchdown')
+             'Missed Field Goal Return Touchdown',"Fumble Return Touchdown Touchdown",
+             "Fumble Recovery (Opponent) Touchdown","Punt Return Touchdown","Blocked Punt Touchdown",
+             "Sack Touchdown","Blocked Field Goal Touchdown","Missed Field Goal Return Touchdown",
+             "Pass Interception Return Touchdown","Kickoff Touchdown")
   
   
   pred_df = clean_pbp_dat %>% select(TimeSecsRem,down,distance,adj_yd_line,log_ydstogo,Under_two,Goal_To_Go)
@@ -165,6 +168,46 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 
 t =pbp_no_OT %>% filter(year==2019)
 t_epa = calculate_epa(t,ep_model,fg_model)
+
+identify_players <- function(pbp_df){
+  pbp_df = pbp_df %>% mutate(
+    passer_name = NA,
+    receiver_name = NA,
+    rusher_name = NA,
+    pass_rusher_name_1 = NA,
+    pass_rusher_name_2 = NA,
+    force_fumble_player = NA,
+    sacked_player_name = NA,
+    int_player_name = NA,
+    deflect_player_name = NA
+  )
+  
+  pbp_df = pbp_df %>% 
+    mutate(
+      ## Passes - QB
+      passer_name = str_split(play_text,"pass") %>% map_chr(.,1),
+      passer_name = ifelse(str_detect(play_text,"pass"),passer_name,NA),
+      ## all rushes
+      rusher_name = str_split(play_text,"run for") %>% map_chr(., 1),
+      rusher_name = ifelse(is.na(rusher_name),str_split(play_text,"rush") %>% map_chr(., 1),rusher_name),
+      rusher_name = ifelse(str_detect(play_text,"rush") | str_detect(play_text,"run for"),rusher_name,NA),
+    )
+  
+  ## Passes - WR 
+  completed_pass = str_detect(pbp_df$play_text, "pass complete to")
+  incomplete_pass = str_detect(pbp_df$play_text,"pass incomplete to")
+  pbp_df$receiver_name[completed_pass] = str_split(pbp_df$play_text[completed_pass], "pass complete to") %>% 
+    map_chr(., 2) %>% str_split(., "for") %>% map_chr(., 1)
+  pbp_df$receiver_name[incomplete_pass] = str_split(pbp_df$play_text[incomplete_pass], "pass incomplete to") %>%   map_chr(., 2)
+  
+  ## Defensive plays 
+  fumble = str_detect(pbp_df$play_text, 'forced by')
+  pbp_df$force_fumble_player  <-
+    str_split(pbp_df$play_text[fumble], 'forced by') %>% map_chr(., 2) %>% str_split(., ",") %>% map_chr(., 1)
+  
+  int_td = str_detect(pbp_df$play_text,'pass intercepted for a TD')
+  int = str_detect(pbp_df$play_text,'pass intercepted') & (!int_td)
+}
 
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT,pbp_no_OT$year)
