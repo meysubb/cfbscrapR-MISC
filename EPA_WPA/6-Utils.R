@@ -153,12 +153,23 @@ prep_df_epa <- function(dat) {
       log_ydstogo = log(adj_yd_line),
       half = ifelse(period <= 2, 1, 2),
       new_yardline = 0,
+      new_Goal_To_Go = FALSE,
       new_down = 0,
       new_distance = 0,
       turnover = 0
     ) %>%  
     left_join(team_abbrs_df,by=c("offense"="full_name")) %>% 
     left_join(team_abbrs_df,by=c("defense"="full_name"),suffix=c("_offense","_defense"))
+  
+  # Turnover Index
+  turnover_ind = dat$play_type %in% turnover_play_type
+  dat[turnover_ind, "new_down"] = 1
+  dat[turnover_ind, "new_distance"] = 10
+  # First down
+  first_down_ind = str_detect(dat$play_text, '1ST')
+  dat[first_down_ind, "new_down"] = 1
+  dat[first_down_ind, "new_distance"] = 10
+  dat[first_down_ind, "new_yardline"] = dat[first_down_ind,"adj_yd_line"] - dat[first_down_ind,"yards_gained"]
   
   # these mess up when you have to regex the yardline, so remove em
   dat$play_text = gsub("1ST down","temp",dat$play_text)
@@ -167,15 +178,6 @@ prep_df_epa <- function(dat) {
   dat$play_text = gsub("4TH down","temp",dat$play_text)
   
   
-  # Turnover Index
-  turnover_ind = dat$play_type %in% turnover_play_type
-  dat[turnover_ind, "new_down"] = 1
-  dat[turnover_ind, "new_distance"] = 10
-  # First down
-  first_down_ind = str_detect(dat$play_text, '1st')
-  dat[first_down_ind, "new_down"] = 1
-  dat[first_down_ind, "new_distance"] = 10
-  dat[first_down_ind, "new_yardline"] = dat[first_down_ind,"adj_yd_line"] - dat[first_down_ind,"yards_gained"]
   # Otherwise What happened?
   dat[(!turnover_ind &
          !first_down_ind), "new_down"] = dat[(!turnover_ind &
@@ -206,10 +208,13 @@ prep_df_epa <- function(dat) {
     ## sack and fumble, this seems to be weirdly tricky
     sack_fumble = sack & (str_detect(dat$play_text,"fumbled"))
     if(any(sack_fumble)){
+      dat[sack_fumble,"play_text"] = gsub("return.*","",dat[sack_fumble,"play_text"])
       q = as.numeric(stringi::stri_extract_last_regex(dat$play_text[sack_fumble],"\\d+"))
       # now identify, if you need to subtract 100?
       receovered_string = str_extract(dat$play_text[sack_fumble], '(?<=, recovered by )[^,]+')
       dat[sack_fumble,"coef"] = gsub("([A-Za-z]+).*", "\\1",receovered_string)
+      dat[sack_fumble,"new_down"] = ifelse(dat[sack_fumble,"abbreviation_offense"] == dat[sack_fumble,"coef"],
+                                           dat[sack_fumble,"new_down"],1)
       dat[sack_fumble,"new_yardline"] = abs(
         ((1-!(dat[sack_fumble,"coef"] == dat[sack_fumble,"abbreviation_defense"])) * 100) - q
         )
@@ -340,11 +345,16 @@ prep_df_epa <- function(dat) {
   #zero_yd_line = dat$new_yardline == 0
   #dat[zero_yd_line,"new_yardline"] = 25
   
-  dat = dat %>% select(TimeSecsRem,new_down,new_distance,new_yardline,turnover) %>%
+  dat = dat %>% select(play_type,TimeSecsRem,new_down,new_distance,new_yardline,turnover) %>%
     mutate(
+      new_Goal_To_Go = ifelse(
+        str_detect(play_type, "Field Goal"),
+        new_distance <= (new_yardline - 17),
+        new_distance <= new_yardline
+      ),
       new_TimeSecsRem = lead(TimeSecsRem),
       new_log_ydstogo = log(new_yardline)) %>%
-    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>%  select(-TimeSecsRem) %>%
+    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>%  select(-TimeSecsRem,-play_type) %>%
     rename(adj_yd_line=new_yardline) 
   colnames(dat) = gsub("new_","",colnames(dat))
   

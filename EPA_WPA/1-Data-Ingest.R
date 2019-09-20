@@ -73,7 +73,13 @@ clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inne
     clock.minutes = ifelse(period %in% c(1,3),15+clock.minutes,clock.minutes),
     raw_secs = clock.minutes * 60 + clock.seconds,
     coef = home_team == defense,
-    adj_yd_line = 100 * (1-coef) + (2*coef-1)*yard_line,
+    coef2 = home_team == offense,
+    ## for duke albama this works
+    ## does it work for oregon-auburn or miami - florida?
+    ## seems to be weird for neutral site games
+    adj_yd_line = ifelse(neutral_site==T,
+                         100 * (1-coef2) + (2*coef2-1)*yard_line,
+                         100 * (1-coef) + (2*coef-1)*yard_line),
     log_ydstogo = log(adj_yd_line),
     half = ifelse(period<=2,1,2)
   ) %>% select(-coef)

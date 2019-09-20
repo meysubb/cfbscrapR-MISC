@@ -36,8 +36,8 @@ pbp_no_OT <-
     Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
     Goal_To_Go = ifelse(
       str_detect(play_type, "Field Goal"),
-      distance == (adj_yd_line - 17),
-      distance == adj_yd_line
+      distance <= (adj_yd_line - 17),
+      distance <= adj_yd_line
     ),
     Under_two = TimeSecsRem <= 120
   )
@@ -94,7 +94,7 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   })
   
   ## Prep for EP_after 
-  prep_df_after = prep_df_epa2(clean_pbp_dat) 
+  prep_df_after = prep_df_epa(clean_pbp_dat) 
   # prep_df_after = prep_df_epa(clean_pbp_dat) 
   # turnover_col = prep_df_after %>% pull(turnover)
   # prep_df_after = prep_df_after %>% select(-turnover)
@@ -160,6 +160,11 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
   current_probs2[fg_ind,"Opp Safety"] <- current_probs[fg_ind,"Safety"]
   return(current_probs2)
 }
+
+
+
+t =pbp_no_OT %>% filter(year==2019)
+t_epa = calculate_epa(t,ep_model,fg_model)
 
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT,pbp_no_OT$year)
