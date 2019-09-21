@@ -77,17 +77,8 @@ clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inne
     ## for duke albama this works
     ## does it work for oregon-auburn or miami - florida?
     ## seems to be weird for neutral site games
-    adj_yd_line = ifelse(neutral_site==T,
-                         100 * (1-coef2) + (2*coef2-1)*yard_line,
-                         100 * (1-coef) + (2*coef-1)*yard_line),
-    log_ydstogo = log(adj_yd_line),
     half = ifelse(period<=2,1,2)
-  ) %>% select(-coef)
-
-# Adjust Field Goal by 17 yards
-fg_inds = str_detect(clean_all_years$play_type,"Field Goal")
-clean_all_years[fg_inds,"adj_yd_line"] = clean_all_years[fg_inds,"adj_yd_line"] + 17
-clean_all_years[fg_inds,"log_ydstogo"] = log(clean_all_years[fg_inds,"adj_yd_line"])
+  ) 
 
 ## Figure out the next score now
 clean_drive = dat_merge %>% mutate(
@@ -146,8 +137,22 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
     )
   )
 clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
-pbp_full_df <- clean_all_years %>% left_join(clean_next_select)
-# write.csv(pbp_full_df,"data/full_pbp_df.csv")
+pbp_full_df <- clean_all_years %>% left_join(clean_next_select) %>% mutate(
+  adj_yd_line = 100 * (1-coef) + (2*coef-1)*yard_line,
+  log_ydstogo = log(adj_yd_line),
+)
+
+## Albama vs Duke game is off. 
+bool_chk = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Alabama","Duke") & pbp_full_df$defense %in% c("Alabama","Duke")
+bool_chk2 = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Florida","Miami") & pbp_full_df$defense %in% c("Florida","Miami")
+bool_chk = bool_chk | bool_chk2
+pbp_full_df$adj_yd_line[bool_chk] = 100 * (1-pbp_full_df$coef2[bool_chk]) + (2*pbp_full_df$coef2[bool_chk] - 1)*pbp_full_df$yard_line[bool_chk]
+
+# Adjust Field Goal by 17 yards
+fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
+pbp_full_df[fg_inds,"adj_yd_line"] = pbp_full_df[fg_inds,"adj_yd_line"] + 17
+pbp_full_df[fg_inds,"log_ydstogo"] = log(pbp_full_df[fg_inds,"adj_yd_line"])
+
 
 ## ESPN doesn't report full games in some instances, and that really throws things off. 
 ## get rid of these. Thanks
