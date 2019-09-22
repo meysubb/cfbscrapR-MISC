@@ -16,6 +16,7 @@ find_game_next_score_half <- function(drive_df){
 }
 
 find_next_score <- function(play_i,score_plays_i,dat_drive){
+  defense_tds <- c("PUNT RETURN TD","FUMBLE TD")
   next_score_i <- score_plays_i[which(score_plays_i >= play_i)[1]]
 
   if( is.na(next_score_i) |
@@ -33,7 +34,13 @@ find_next_score <- function(play_i,score_plays_i,dat_drive){
     # if they are the same then you are good
     # if it is different then flip the negative sign
     current_team <- dat_drive$offense[play_i]
+    
+    ## If the defense scores
+    ## we need to make sure the next_score_team is correct
     next_score_team <- dat_drive$offense[next_score_i]
+    if(dat_drive$drive_result[next_score_i] %in% defense_tds){
+      next_score_team <= dat_drive$defense[next_score_i]
+    }
 
     if(str_detect(dat_drive$drive_result[next_score_i],"RETURN TD")){
       if( identical(current_team,next_score_team)){
@@ -141,7 +148,8 @@ prep_df_epa <- function(dat) {
   )
   
   off_TD = c('Passing Touchdown','Rushing Touchdown')
-  def_TD = c('Interception Return Touchdown','Fumble Return Touchdown')
+  def_TD = c('Interception Return Touchdown','Fumble Return Touchdown','Punt Return Touchdown',
+             'Fumble Recovery (Opponent) Touchdown')
   
   dat = dat %>%
     mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
@@ -225,23 +233,6 @@ prep_df_epa <- function(dat) {
     }
   }
   
-  ## deal with penalties as they also throw this off 
-  penalty = (str_detect(dat$play_text,"Penalty")) 
-  if(any(penalty)){
-    penalty_string = str_extract(dat$play_text[penalty], '(?<=Penalty,)[^,]+')
-    double_try = str_extract(penalty_string,'(?<=to the )[^,]+')
-    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
-    dat[penalty,"coef"] = to_upper_camel_case(gsub("([A-Za-z]+).*", "\\1",double_try))
-    # first calculate things for regular cases
-    dat[penalty,"new_yardline"] = abs(((1-(dat[penalty,"coef"] == dat[penalty,"abbreviation_defense"])) * 100) - q)
-  }
-  
-  declined = penalty & str_detect(dat$play_text,"declined")
-  if(any(declined)){
-    dat[declined,"new_yardline"] = dat[declined,"adj_yd_line"] - dat[declined,"yards_gained"]
-  }
-  
-  
   safety = dat$play_type == 'Safety'
   if(any(safety)){
     dat[safety,"new_yardline"] = 99 
@@ -275,7 +266,11 @@ prep_df_epa <- function(dat) {
   punt = c("Punt")
   punt_ind = dat$play_type %in% punt
   if(any(punt_ind)){
-    
+    punt_play = dat[punt_ind,] %>% pull(play_text)
+    double_try = stringi::stri_extract_last_regex(punt_play,'(?<=the )[^,]+')
+    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    dat[punt_ind,"coef"] = gsub("([A-Za-z]+).*", "\\1",double_try)
+    dat[punt_ind,"new_yardline"] = abs(((1-(dat[punt_ind,"coef"] == dat[punt_ind,"abbreviation_defense"])) * 100) - q)
   }
   
   # missed field goal, what happens
@@ -293,8 +288,14 @@ prep_df_epa <- function(dat) {
   # handle missed field goals here
   # just workout the yards here
   miss_fg_return = "Missed Field Goal Return"
-  miss_fg_ind = dat$play_type %in% miss_fg
-  
+  miss_fg_return_ind = dat$play_type == miss_fg_return
+  if(any(miss_fg_return_ind)){
+    miss_return_play = dat[miss_fg_return_ind,] %>% pull(play_text)
+    double_try = stringi::stri_extract_last_regex(miss_return_play,'(?<=the )[^,]+')
+    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    dat[miss_fg_return_ind,"coef"] = gsub("([A-Za-z]+).*", "\\1",double_try)
+    dat[miss_fg_return_ind,"new_yardline"] = abs(((1-(dat[miss_fg_return_ind,"coef"] == dat[miss_fg_return_ind,"abbreviation_defense"])) * 100) - q)
+  }
   
   # missed field goal return
   block_return <- c("Missed Field Goal Return")
@@ -333,6 +334,22 @@ prep_df_epa <- function(dat) {
   dat[touchback,"new_yardline"] = 80
   dat[touchback,"new_down"] = 1
    
+  ## deal with penalties as they also throw this off 
+  penalty = (str_detect(dat$play_text,"Penalty")) 
+  if(any(penalty)){
+    penalty_string = str_extract(dat$play_text[penalty], '(?<=Penalty,)[^,]+')
+    double_try = str_extract(penalty_string,'(?<=to the )[^,]+')
+    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    dat[penalty,"coef"] = gsub("([A-Za-z]+).*", "\\1",double_try)
+    # first calculate things for regular cases
+    dat[penalty,"new_yardline"] = abs(((1-(dat[penalty,"coef"] == dat[penalty,"abbreviation_defense"])) * 100) - q)
+  }
+  
+  declined = penalty & str_detect(dat$play_text,"declined")
+  if(any(declined)){
+    dat[declined,"new_yardline"] = dat[declined,"adj_yd_line"] - dat[declined,"yards_gained"]
+  }
+  
   missing_inds = dat$new_distance <= 0 
   dat[missing_inds,"new_down"] = 1
   dat[missing_inds,"new_distance"] = 10
@@ -372,7 +389,7 @@ prep_df_epa <- function(dat) {
   dat$new_log_ydstogo[blk_fg_na] = log(dat$new_yardline[blk_fg_na])
   
   
-  dat = dat %>% select(new_TimeSecsRem,new_down,new_distance,new_yardline,turnover)
+  dat = dat %>% select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,turnover) %>% 
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>%  
     rename(adj_yd_line=new_yardline) 
   colnames(dat) = gsub("new_","",colnames(dat))

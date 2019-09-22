@@ -166,7 +166,7 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 
 
 
-t =pbp_no_OT %>% filter(year==2019)
+t =pbp_no_OT %>% filter(year==2018)
 t_epa = calculate_epa(t,ep_model,fg_model)
 
 identify_players <- function(pbp_df){
