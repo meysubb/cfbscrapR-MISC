@@ -53,10 +53,10 @@ fg_model = readRDS("models/fg_model.rds")
 ##+ Under_TwoMinute_Warning
 ## Create a weighting factor
 # need
-# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
-#                                down + log_ydstogo + log_ydstogo*down +
-#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
-# saveRDS(ep_model,"models/ep_model.rds")
+ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
+                               down + log_ydstogo + log_ydstogo*down +
+                              adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
+saveRDS(ep_model,"models/ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("models/ep_model.rds")
 
@@ -97,7 +97,7 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   })
   
   ## Prep for EP_after 
-  prep_df_after = prep_df_epa(clean_pbp_dat) 
+  prep_df_after = prep_df_epa2(clean_pbp_dat) 
   # prep_df_after = prep_df_epa(clean_pbp_dat) 
   # turnover_col = prep_df_after %>% pull(turnover)
   # prep_df_after = prep_df_after %>% select(-turnover)
