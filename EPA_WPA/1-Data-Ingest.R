@@ -34,7 +34,7 @@ dat_merge <- read_csv("data/clean_drives_data.csv")
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3))
+weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
