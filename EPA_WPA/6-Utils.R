@@ -6,6 +6,8 @@ library(snakecase)
 team_abbrs_list  = paste(team_abbrs_df$abbreviation, collapse="|") 
 
 find_game_next_score_half <- function(drive_df){
+  drive_df$drive_id <- as.numeric(drive_df$drive_id)
+  drive_df = drive_df %>% arrange(drive_id)
   score_plays <- which(drive_df$scoring == TRUE & !str_detect(drive_df$drive_result,"END OF"))
 
   final_df = lapply(1:nrow(drive_df),find_next_score,
@@ -39,7 +41,7 @@ find_next_score <- function(play_i,score_plays_i,dat_drive){
     ## we need to make sure the next_score_team is correct
     next_score_team <- dat_drive$offense[next_score_i]
     if(dat_drive$drive_result[next_score_i] %in% defense_tds){
-      next_score_team <= dat_drive$defense[next_score_i]
+      next_score_team <- dat_drive$defense[next_score_i]
     }
 
     if(str_detect(dat_drive$drive_result[next_score_i],"RETURN TD")){
