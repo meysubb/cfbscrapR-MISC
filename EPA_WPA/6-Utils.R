@@ -72,7 +72,8 @@ prep_df_epa2 <- function(dat){
     'Fumble Return Touchdown',
     'Safety',
     'Interception',
-    'Pass Interception'
+    'Pass Interception',
+    'Punt'
   )
   
   dat = dat %>%
@@ -92,7 +93,14 @@ prep_df_epa2 <- function(dat){
   
   turnover_ind = dat$play_type %in% turnover_play_type
   dat$turnover = 0 
-  dat$turnover[turnover_ind] <- 1 
+  
+  new_offense = !(dat$offense == lead(dat$offense)) 
+  fourth_down = dat$down == 4
+  t_ind = turnover_ind | (new_offense & fourth_down)
+  
+  dat$turnover[t_ind] <- 1 
+  
+  
   
   dat = dat %>% group_by(game_id,half) %>% 
     dplyr::arrange(id,.by_group=TRUE) %>% 
@@ -130,7 +138,8 @@ prep_df_epa2 <- function(dat){
     new_log_ydstogo,
     new_Goal_To_Go,
     new_Under_two,
-    end_half_game
+    end_half_game,
+    turnover
   ) 
   colnames(dat) = gsub("new_","",colnames(dat))
   colnames(dat)[4] <- "adj_yd_line"

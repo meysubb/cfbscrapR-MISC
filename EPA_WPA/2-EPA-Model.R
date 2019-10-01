@@ -20,8 +20,8 @@ remove_plays <-
     "End of Half",
     "End of Game",
     "Uncategorized",
-    "Penalty",
     "Kickoff",
+    "Penalty",
     "Kickoff Return (Offense)",
     "Kickoff Return Touchdown"
   )
@@ -39,8 +39,9 @@ pbp_no_OT <-
       distance <= (adj_yd_line - 17),
       distance <= adj_yd_line
     ),
-    Under_two = TimeSecsRem <= 120
-  )
+    Under_two = TimeSecsRem <= 120,
+    id = as.numeric(id)
+  ) %>% filter(!is.na(game_id))
 
 # fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
 # fg_no_OT <- pbp_no_OT[fg_contains,]
@@ -98,9 +99,17 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   
   ## Prep for EP_after 
   prep_df_after = prep_df_epa2(clean_pbp_dat) 
-  # prep_df_after = prep_df_epa(clean_pbp_dat) 
-  # turnover_col = prep_df_after %>% pull(turnover)
-  # prep_df_after = prep_df_after %>% select(-turnover)
+  if(length(unique(clean_pbp_dat$game_id)) > 1){
+    # if you are trying to deal with multiple games at once
+    # then you have to get the after individually. 
+    prep_df_after = map_dfr(unique(clean_pbp_dat$game_id),
+                            function(x) {
+                              clean_pbp_dat %>%
+                                filter(game_id == x) %>%
+                                prep_df_epa2()
+                            })
+  }
+  
   ep_end = predict(ep_model,prep_df_after,type='prob')
   pred_df$ep_after = apply(ep_end, 1, function(row){
     sum(row * weights)
@@ -110,8 +119,12 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   pred_df = cbind(clean_pbp_dat,prep_df_after,pred_df[,c("ep_before","ep_after")])
   #pred_df$turnover = turnover_col
   
+  turnover_plays = which(pred_df$turnover_end == 1)
+  pred_df[turnover_plays, "ep_after"] = -1 * pred_df[turnover_plays, "ep_after"]
+  
   pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
-  pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"] = -1 * pred_df[(pred_df$play_type %in% turnover_play_type), "ep_after"]
+  
+  
   pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
   
   pred_df[pred_df$play_type=="Safety","ep_after"] = -2
@@ -166,11 +179,6 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 }
 
 
-
-t =pbp_no_OT %>% filter(year==2019)
-t_epa = calculate_epa(t,ep_model,fg_model)
-
-test = t %>% filter(offense %in% c("Purdue","TCU"),defense %in% c("Purdue","TCU"))
 
 identify_players <- function(pbp_df){
   pbp_df = pbp_df %>% mutate(
