@@ -14,7 +14,7 @@ colnames(schedule_df)[2] <- "game_id"
 
 ## clean schedule data, remove FCS games
 schedule_df_clean <- schedule_df %>% tidyr::drop_na(home_conference) %>% tidyr::drop_na(away_conference)
-saveRDS(schedule_df_clean,"data/game_schedule.RDS")
+# saveRDS(schedule_df_clean,"data/game_schedule.RDS")
 
 # schedule_df_clean <- readRDS("data/game_schedule.RDS")
 
@@ -34,7 +34,7 @@ dat_merge <- read_csv("data/clean_drives_data.csv")
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4))
+weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
@@ -147,6 +147,7 @@ bool_chk = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Alabama","Duke
 bool_chk2 = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Florida","Miami") & pbp_full_df$defense %in% c("Florida","Miami")
 bool_chk = bool_chk | bool_chk2
 pbp_full_df$adj_yd_line[bool_chk] = 100 * (1-pbp_full_df$coef2[bool_chk]) + (2*pbp_full_df$coef2[bool_chk] - 1)*pbp_full_df$yard_line[bool_chk]
+pbp_full_df$log_ydstogo[bool_chk] = log(pbp_full_df$adj_yd_line[bool_chk])
 
 # Adjust Field Goal by 17 yards
 fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")

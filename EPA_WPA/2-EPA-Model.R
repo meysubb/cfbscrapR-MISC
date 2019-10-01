@@ -53,10 +53,10 @@ fg_model = readRDS("models/fg_model.rds")
 ##+ Under_TwoMinute_Warning
 ## Create a weighting factor
 # need
-ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
-                               down + log_ydstogo + log_ydstogo*down +
-                              adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
-saveRDS(ep_model,"models/ep_model.rds")
+# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
+#                                down + log_ydstogo + log_ydstogo*down +
+#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300)
+# saveRDS(ep_model,"models/ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("models/ep_model.rds")
 
@@ -106,7 +106,8 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
     sum(row * weights)
   })
   
-  pred_df = cbind(clean_pbp_dat,pred_df[,c("ep_before","ep_after")])
+  colnames(prep_df_after) = paste0(colnames(prep_df_after),"_end")
+  pred_df = cbind(clean_pbp_dat,prep_df_after,pred_df[,c("ep_before","ep_after")])
   #pred_df$turnover = turnover_col
   
   pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
@@ -116,7 +117,7 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   pred_df[pred_df$play_type=="Safety","ep_after"] = -2
   pred_df[pred_df$play_type=="Field Goal Good","ep_after"] = 3
   # game end EP is 0
-  pred_df[pred_df$end_half_game == 1,"ep_after"] = 0
+  pred_df[pred_df$end_half_game_end == 1,"ep_after"] = 0
   
   
   pred_df = pred_df %>% 
@@ -166,8 +167,10 @@ epa_fg_probs <- function(dat,current_probs,fg_mod){
 
 
 
-t =pbp_no_OT %>% filter(year==2018)
+t =pbp_no_OT %>% filter(year==2019)
 t_epa = calculate_epa(t,ep_model,fg_model)
+
+test = t %>% filter(offense %in% c("Purdue","TCU"),defense %in% c("Purdue","TCU"))
 
 identify_players <- function(pbp_df){
   pbp_df = pbp_df %>% mutate(

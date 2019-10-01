@@ -90,6 +90,10 @@ prep_df_epa2 <- function(dat){
       new_distance = 0
     )
   
+  turnover_ind = dat$play_type %in% turnover_play_type
+  dat$turnover = 0 
+  dat$turnover[turnover_ind] <- 1 
+  
   dat = dat %>% group_by(game_id,half) %>% 
     dplyr::arrange(id,.by_group=TRUE) %>% 
     mutate(
@@ -100,7 +104,8 @@ prep_df_epa2 <- function(dat){
       new_log_ydstogo = log(new_yardline),
       new_Goal_To_Go = lead(Goal_To_Go),
       # new under two minute warnings
-      new_Under_two = new_TimeSecsRem <= 120) %>% ungroup() %>% 
+      new_Under_two = new_TimeSecsRem <= 120,
+      end_half_game=0) %>% ungroup() %>% 
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) 
   
   end_of_half_plays = is.na(dat$new_yardline) & (dat$new_TimeSecsRem==0)
@@ -108,7 +113,7 @@ prep_df_epa2 <- function(dat){
     dat$new_yardline[end_of_half_plays] <- 99
     dat$new_down[end_of_half_plays] <- 4
     dat$new_distance[end_of_half_plays] <- 99
-    dat$end_half_game <- 1
+    dat$end_half_game[end_of_half_plays] <- 1
     dat$new_log_ydstogo[end_of_half_plays] <- log(99)
     dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
   }
