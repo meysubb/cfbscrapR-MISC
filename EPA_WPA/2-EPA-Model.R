@@ -122,21 +122,52 @@ calculate_epa <- function(clean_pbp_dat,ep_mod,fg_mod){
   turnover_plays = which(pred_df$turnover_end == 1)
   pred_df[turnover_plays, "ep_after"] = -1 * pred_df[turnover_plays, "ep_after"]
   
-  pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
-  
-  
-  pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
-  
-  pred_df[pred_df$play_type=="Safety","ep_after"] = -2
-  pred_df[pred_df$play_type=="Field Goal Good","ep_after"] = 3
   # game end EP is 0
   pred_df[pred_df$end_half_game_end == 1,"ep_after"] = 0
   
+  ## scoring plays from here on out
+  pred_df[(pred_df$play_type %in% off_TD),"ep_after"] = 7
+  pred_df[(pred_df$play_type %in% def_TD),"ep_after"] = -7
+  pred_df[pred_df$play_type=="Safety","ep_after"] = -2
+  pred_df[pred_df$play_type=="Field Goal Good","ep_after"] = 3
   
-  pred_df = pred_df %>% 
-    mutate(
-      EPA = ep_after - ep_before
-    )
+  
+  
+  pred_df = pred_df %>%
+    mutate(EPA = ep_after - ep_before) %>% select(-yard_line, -coef, -coef2,-log_ydstogo_end,
+                                                  -Goal_To_Go_end, -home_team) %>% select(year,
+                                                                                        week,
+                                                                                        game_id,
+                                                                                        drive_id,
+                                                                                        id,
+                                                                                        offense,
+                                                                                        offense_conference,
+                                                                                        defense,
+                                                                                        defense_conference,
+                                                                                        home,
+                                                                                        away,
+                                                                                        neutral_site,
+                                                                                        period,
+                                                                                        half,
+                                                                                        clock.minutes,
+                                                                                        clock.seconds,
+                                                                                        offense_score,
+                                                                                        defense_score,
+                                                                                        play_type,
+                                                                                        play_text,
+                                                                                        scoring,
+                                                                                        TimeSecsRem,
+                                                                                        down,
+                                                                                        distance,
+                                                                                        adj_yd_line,
+                                                                                        yards_gained,
+                                                                                        TimeSecsRem_end,
+                                                                                        down_end,
+                                                                                        distance_end,
+                                                                                        adj_yd_line_end,
+                                                                                        turnover_end,
+                                                                                        Under_two_end,
+                                                                                        everything())
   return(pred_df)
 }
 
@@ -220,6 +251,9 @@ identify_players <- function(pbp_df){
   int = str_detect(pbp_df$play_text,'pass intercepted') & (!int_td)
 }
 
+
+
+
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT,pbp_no_OT$year)
 all_years_epa = lapply(all_years, function(x){
@@ -242,7 +276,7 @@ for(i in 1:len){
 
 
 lapply(names(all_years_epa),function(x){
-  write.csv(all_years_epa[[x]],file=paste0("data/csv/EPA_calcs_",x,".csv"))
+  write.csv(all_years_epa[[x]],file=paste0("data/csv/EPA_calcs_",x,".csv"),row.names = F)
 })
 
 lapply(names(all_years_epa),function(x){

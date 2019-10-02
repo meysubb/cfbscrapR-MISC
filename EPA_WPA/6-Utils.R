@@ -95,8 +95,8 @@ prep_df_epa2 <- function(dat){
   dat$turnover = 0 
   
   new_offense = !(dat$offense == lead(dat$offense)) 
-  fourth_down = dat$down == 4
-  t_ind = turnover_ind | (new_offense & fourth_down)
+  #fourth_down = dat$down == 4,  & fourth_down
+  t_ind = turnover_ind | (new_offense)
   
   dat$turnover[t_ind] <- 1 
   
