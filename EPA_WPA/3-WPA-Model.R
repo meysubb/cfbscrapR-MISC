@@ -9,6 +9,7 @@ epa_17 <- readRDS("data/rds/EPA_calcs_2017.RDS")
 epa_18 <- readRDS("data/rds/EPA_calcs_2018.RDS")
 epa_19 <- readRDS("data/rds/EPA_calcs_2019.RDS")
 
+
 epa <- bind_rows(epa_16,epa_17,epa_18,epa_19)
 
 ## Game ID 
@@ -28,7 +29,7 @@ epa$EPA <- epa$ep_after - epa$ep_before
 epa_w = epa %>% left_join(win_df) %>% 
   mutate(
     score_diff = offense_score - defense_score,
-    home_EPA = ifelse(offense==home_team,EPA,-EPA),
+    home_EPA = ifelse(offense==home,EPA,-EPA),
     away_EPA = -home_EPA,
     ExpScoreDiff = score_diff + ep_before,
     Win_Indicator = as.factor(ifelse(offense==winner,1,0)),
@@ -47,7 +48,7 @@ epa_w = epa %>% left_join(win_df) %>%
 #                       data = epa_w, family = "binomial", cluster=cl)
 # 
 # stopCluster(cl)
-#save(wp_model, file="data/wp_model.RData")
+# save(wp_model, file="data/wp_model.RData")
 
 load("wp_model.RData")
 library(mgcv)
@@ -56,9 +57,9 @@ create_wpa <- function(df,wp_mod){
   df2 = df %>% mutate(
     wp = Off_Win_Prob,
     def_wp = 1-wp,
-    home_wp = if_else(offense == home_team,
+    home_wp = if_else(offense == home,
                       wp,def_wp),
-    away_wp = if_else(offense != home_team,
+    away_wp = if_else(offense != home,
                       wp,def_wp)) %>% group_by(half) %>% 
     mutate(
       # ball changes hand
@@ -72,10 +73,10 @@ create_wpa <- function(df,wp_mod){
       # account for turnover
       wpa_change = ifelse(change_of_poss == 1, (1 - lead_wp) - wp, wpa_base),
       wpa = ifelse(end_of_half==1,0,wpa_change),
-      home_wp_post = ifelse(offense == home_team,
+      home_wp_post = ifelse(offense == home,
                             home_wp + wpa,
                             home_wp - wpa),
-      away_wp_post = ifelse(offense != home_team,
+      away_wp_post = ifelse(offense != home,
                             away_wp + wpa,
                             away_wp - wpa),
       adj_TimeSecsRem = ifelse(half == 1, 1800 + TimeSecsRem, TimeSecsRem)
