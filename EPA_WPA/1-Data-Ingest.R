@@ -24,7 +24,7 @@ drive_df <- df %>% mutate(
 drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 
 
-# dat_merge <- drive_dat %>% merge(schedule_df_clean)
+dat_merge <- drive_dat %>% merge(schedule_df_clean)
 # colnames(dat_merge)[7] <- "drive_id"
 # dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
 # write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
@@ -34,7 +34,7 @@ dat_merge <- read_csv("data/clean_drives_data.csv")
 week_vector = 1:15
 year_vector = 2010:2018
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5))
+weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5),c(2019,6),c(2019,7))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
