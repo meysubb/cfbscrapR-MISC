@@ -82,8 +82,9 @@ prep_df_epa2 <- function(dat){
       id = as.numeric(id),
       clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
       raw_secs = clock.minutes * 60 + clock.seconds,
-      coef = home_team == defense,
-      adj_yd_line = 100 * (1 - coef) + (2 * coef - 1) * yard_line,
+      # why is this being calculated again?
+      #coef = home_team == defense,
+      #adj_yd_line = 100 * (1 - coef) + (2 * coef - 1) * yard_line,
       log_ydstogo = log(adj_yd_line),
       half = ifelse(period <= 2, 1, 2),
       new_yardline = 0,

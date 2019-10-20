@@ -163,8 +163,11 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
   
   
   pred_df = pred_df %>%
-    mutate(EPA = ep_after - ep_before) %>% select(-yard_line,-coef,-coef2,-log_ydstogo_end,
-                                                  -Goal_To_Go_end,-home_team) %>% select(
+    mutate(EPA = ep_after - ep_before) %>% select(-yard_line,
+                                                  -coef,
+                                                  -coef2,
+                                                  -log_ydstogo_end,-Goal_To_Go_end,
+                                                  -home_team) %>% select(
                                                     year,
                                                     week,
                                                     game_id,
@@ -198,6 +201,58 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
                                                     turnover_end,
                                                     Under_two_end,
                                                     everything()
+                                                  ) %>% mutate(
+                                                    rz_play = ifelse((adj_yd_line <= 20), 1, 0),
+                                                    scoring_opp = ifelse((adj_yd_line <= 40),1,0),
+                                                    pass = if_else(
+                                                      play_type == "Pass Reception" | play_type == "Passing Touchdown"|
+                                                        play_type == "Sack" |
+                                                        play_type == "Pass Interception Return" |
+                                                        play_type == "Pass Incompletion" |
+                                                        play_type == "Sack Touchdown" |
+                                                        (play_type == "Safety" &
+                                                           str_detect(play_text, "sacked")) |
+                                                        (
+                                                          play_type == "Fumble Recovery (Own)" &
+                                                            str_detect(play_text, "pass")) |
+                                                        (
+                                                          play_type == "Fumble Recovery (Opponent)" &
+                                                            str_detect(play_text, "pass")),
+                                                      1,
+                                                      0
+                                                    ),
+                                                    rush = ifelse(
+                                                      play_type == "Rush" |
+                                                        (play_type == "Safety" & str_detect(play_text, "run")) |
+                                                        (
+                                                          play_type == "Fumble Recovery (Opponent)" &
+                                                            str_detect(play_text, "run")
+                                                        ) |
+                                                        (
+                                                          play_type == "Fumble Recovery (Own)" &
+                                                            str_detect(play_text, "run")
+                                                        ),
+                                                      1,
+                                                      0
+                                                    ),
+                                                    stuffed_run = ifelse((rush == 1 &
+                                                                            yards_gained <= 0), 1, 0),
+                                                    success = ifelse(
+                                                      yards_gained >= .5 * distance & down == 1,
+                                                      1,
+                                                      ifelse(
+                                                        yards_gained >= .7 * distance & down == 2,
+                                                        1,
+                                                        ifelse(
+                                                          yards_gained >= distance & down == 3,
+                                                          1,
+                                                          ifelse(yards_gained >= distance &
+                                                                   down == 4, 1, 0)
+                                                        )
+                                                      )
+                                                    ),
+                                                    success = ifelse(play_type %in% turnover_play_type, 0, success),
+                                                    epa_success = ifelse(EPA > 0, 1, 0)
                                                   )
   return(pred_df)
 }
@@ -292,9 +347,6 @@ identify_players <- function(pbp_df) {
   int_td = str_detect(pbp_df$play_text, 'pass intercepted for a TD')
   int = str_detect(pbp_df$play_text, 'pass intercepted') & (!int_td)
 }
-
-
-
 
 ## Separate by Year into a list, then run EPA
 all_years = split(pbp_no_OT, pbp_no_OT$year)
