@@ -20,7 +20,16 @@ home_color <- c(IOWA="#FA4616")
 
 wpa_plot_func(ttu_bu,away_color,home_color,year=2019,winner="away")
 
+lsu_bama <- epa_w %>% filter(
+  year == 2019,
+  offense %in% c("LSU","Alabama"),
+  defense %in% c("LSU","Alabama")
+) %>% create_wpa(wp_mod = wp_model)
 
+away_color <- c(LSU="#461D7C")
+home_color <- c(BAMA="#9E1B32")
+
+wpa_plot_func(lsu_bama,away_color,home_color,year=2019,winner="away")
 
 # pitt_penn_st <- epa_w %>% filter(
 #   year == 2019,
