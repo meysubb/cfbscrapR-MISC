@@ -14,9 +14,9 @@ colnames(schedule_df)[2] <- "game_id"
 
 ## clean schedule data, remove FCS games
 schedule_df_clean <- schedule_df %>% tidyr::drop_na(home_conference) %>% tidyr::drop_na(away_conference)
-# saveRDS(schedule_df_clean,"data/game_schedule.RDS")
+saveRDS(schedule_df_clean,"data/game_schedule.RDS")
 
-# schedule_df_clean <- readRDS("data/game_schedule.RDS")
+schedule_df_clean <- readRDS("data/game_schedule.RDS")
 
 ## Drive data
 drive_df <- df %>% mutate(
@@ -25,9 +25,9 @@ drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 
 
 dat_merge <- drive_dat %>% merge(schedule_df_clean)
-# colnames(dat_merge)[7] <- "drive_id"
-# dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
-# write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
+colnames(dat_merge)[7] <- "drive_id"
+dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
+write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
 
 dat_merge <- read_csv("data/clean_drives_data.csv")
 
@@ -59,7 +59,7 @@ all_years = bind_rows(year_split) #%>% inner_join(drive)
 td_e = str_detect(all_years$play_text,"TD") | str_detect(all_years$play_text,"Touchdown") | str_detect(all_years$play_text,"TOUCHDOWN")
 all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e] <- paste0(all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e]," Touchdown")
 write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
-#all_years <- read_csv("data/raw_all_years.csv")
+all_years <- read_csv("data/raw_all_years.csv")
 
 drive_join_df = dat_merge %>% select(home_team,drive_id) %>% 
   mutate(drive_id = as.numeric(drive_id))
