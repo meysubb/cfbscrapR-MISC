@@ -27,7 +27,7 @@ remove_plays <-
   )
 
 pbp_no_OT <-
-  pbp_full_df %>% filter(period <= 4, down > 0) %>%
+  pbp %>% filter(period <= 4, down > 0) %>%
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(log_ydstogo != -Inf) %>%
@@ -36,8 +36,8 @@ pbp_no_OT <-
     Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
     Goal_To_Go = ifelse(
       str_detect(play_type, "Field Goal"),
-      distance <= (adj_yd_line - 17),
-      distance <= adj_yd_line
+      distance >= (adj_yd_line - 17),
+      distance >= adj_yd_line
     ),
     Under_two = TimeSecsRem <= 120,
     id = as.numeric(id)
@@ -52,7 +52,7 @@ pbp_no_OT <-
 # Load FG Model
 fg_model = readRDS("models/fg_model.rds")
 ##+ Under_TwoMinute_Warning
-# weight factor, normalized absolute score differential. 
+# weight factor, normalized absolute score differential.
 # flip the normilization so that larger scores don't matter as much as closer scores
 # wts = pbp_no_OT %>%
 #   mutate(
@@ -85,7 +85,7 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
     "Field Goal Missed",
     "Blocked Field Goal"
   )
-  
+
   off_TD = c(
     'Passing Touchdown',
     'Rushing Touchdown',
@@ -106,8 +106,8 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
     "Pass Interception Return Touchdown",
     "Kickoff Touchdown"
   )
-  
-  
+
+
   pred_df = clean_pbp_dat %>% select(TimeSecsRem,
                                      down,
                                      distance,
@@ -115,7 +115,7 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
                                      log_ydstogo,
                                      Under_two,
                                      Goal_To_Go)
-  
+
   # ep_start
   ep_start = as.data.frame(predict(ep_mod, pred_df, type = 'prob'))
   ep_start_update = epa_fg_probs(dat = clean_pbp_dat,
@@ -125,7 +125,7 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
   pred_df$ep_before = apply(ep_start_update, 1, function(row) {
     sum(row * weights)
   })
-  
+
   ## Prep for EP_after
   prep_df_after = prep_df_epa2(clean_pbp_dat)
   if (length(unique(clean_pbp_dat$game_id)) > 1) {
@@ -138,30 +138,30 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
                                 prep_df_epa2()
                             })
   }
-  
+
   ep_end = predict(ep_model, prep_df_after, type = 'prob')
   pred_df$ep_after = apply(ep_end, 1, function(row) {
     sum(row * weights)
   })
-  
+
   colnames(prep_df_after) = paste0(colnames(prep_df_after), "_end")
   pred_df = cbind(clean_pbp_dat, prep_df_after, pred_df[, c("ep_before", "ep_after")])
   #pred_df$turnover = turnover_col
-  
+
   turnover_plays = which(pred_df$turnover_end == 1)
   pred_df[turnover_plays, "ep_after"] = -1 * pred_df[turnover_plays, "ep_after"]
-  
+
   # game end EP is 0
   pred_df[pred_df$end_half_game_end == 1, "ep_after"] = 0
-  
+
   ## scoring plays from here on out
   pred_df[(pred_df$play_type %in% off_TD), "ep_after"] = 7
   pred_df[(pred_df$play_type %in% def_TD), "ep_after"] = -7
   pred_df[pred_df$play_type == "Safety", "ep_after"] = -2
   pred_df[pred_df$play_type == "Field Goal Good", "ep_after"] = 3
-  
-  
-  
+
+
+
   pred_df = pred_df %>%
     mutate(EPA = ep_after - ep_before) %>% select(-yard_line,
                                                   -coef,
@@ -263,15 +263,15 @@ calculate_epa <- function(clean_pbp_dat, ep_mod, fg_mod) {
 epa_fg_probs <- function(dat, current_probs, fg_mod) {
   fg_ind = str_detect((dat$play_type), "Field Goal")
   fg_dat = dat[fg_ind, ]
-  
+
   # we are setting everythign after 0 seconds to have
   # 0 probs.
   end_game_ind = which(dat$TimeSecsRem <= 0)
   current_probs[end_game_ind, ] <- 0
-  
+
   make_fg_prob <- mgcv::predict.bam(fg_mod, newdata = fg_dat,
                                     type = "response")
-  
+
   # add in the fg make prob into this
   current_probs2 <- current_probs
   #current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
@@ -282,8 +282,8 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
     temp[i, ] = temp[i, ] * val[i]
   }
   current_probs2[fg_ind, ] =  temp
-  
-  
+
+
   # now to flip all the probs,
   current_probs2[fg_ind, "FG"] <-
     make_fg_prob + current_probs[fg_ind, "Opp FG"]
@@ -311,7 +311,7 @@ identify_players <- function(pbp_df) {
     int_player_name = NA,
     deflect_player_name = NA
   )
-  
+
   pbp_df = pbp_df %>%
     mutate(
       ## Passes - QB
@@ -331,19 +331,19 @@ identify_players <- function(pbp_df) {
         NA
       ),
     )
-  
+
   ## Passes - WR
   completed_pass = str_detect(pbp_df$play_text, "pass complete to")
   incomplete_pass = str_detect(pbp_df$play_text, "pass incomplete to")
   pbp_df$receiver_name[completed_pass] = str_split(pbp_df$play_text[completed_pass], "pass complete to") %>%
     map_chr(., 2) %>% str_split(., "for") %>% map_chr(., 1)
   pbp_df$receiver_name[incomplete_pass] = str_split(pbp_df$play_text[incomplete_pass], "pass incomplete to") %>%   map_chr(., 2)
-  
+
   ## Defensive plays
   fumble = str_detect(pbp_df$play_text, 'forced by')
   pbp_df$force_fumble_player  <-
     str_split(pbp_df$play_text[fumble], 'forced by') %>% map_chr(., 2) %>% str_split(., ",") %>% map_chr(., 1)
-  
+
   int_td = str_detect(pbp_df$play_text, 'pass intercepted for a TD')
   int = str_detect(pbp_df$play_text, 'pass intercepted') & (!int_td)
 }
