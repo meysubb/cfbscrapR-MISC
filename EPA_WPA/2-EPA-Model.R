@@ -27,7 +27,7 @@ remove_plays <-
   )
 
 pbp_no_OT <-
-  pbp %>% filter(period <= 4, down > 0) %>%
+  pbp_full_df %>% filter(year>=2014,year<2019,period <= 4, down > 0) %>%
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(log_ydstogo != -Inf) %>%
