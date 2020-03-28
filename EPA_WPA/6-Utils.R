@@ -64,6 +64,275 @@ find_next_score <- function(play_i,score_plays_i,dat_drive){
   }
 }
 
+calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3, 
+                                     ep_model_data) {
+  
+  # Create vector of seasons to generate hold out results for:
+  seasons <- unique(ep_model_data$year)
+  
+  # Generate the predictions for each holdout season:
+  map_dfr(seasons, 
+          function(x) {
+            
+            # Separate test and training data:
+            test_data <- ep_model_data %>%
+              filter(year == x)
+            train_data <- ep_model_data %>%
+              filter(year != x)
+            
+            # Create the various weight columns only using
+            # the train_data:
+            train_data <- train_data %>%
+              # 1 - drive difference
+              mutate(Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+                       (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+                     
+                     # 2 - score differential
+                     ScoreDiff_W = (max(abs_diff) - abs_diff) / 
+                       (max(abs_diff) - min(abs_diff)),
+                     
+                     # 3 - combo of 1 and 2
+                     Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+                     Total_W_Scaled = (Total_W - min(Total_W)) / 
+                       (max(Total_W) - min(Total_W)),
+                     
+                     # 4 - difference from holdout season
+                     Season_Diff = abs(year - x),
+                     Season_Diff_W = (max(Season_Diff) - Season_Diff) / 
+                       (max(Season_Diff) - min(Season_Diff)),
+                     
+                     # 5 - combo of 1, 2, and 4
+                     Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W + 
+                       Season_Diff_W,
+                     Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) / 
+                       (max(Total_Season_W) - min(Total_Season_W)))
+            
+            # Type of weighting:
+            if (weight_type == 1){
+              # Drive difference weight
+              train_data$model_weights <- train_data$Drive_Score_Dist_W
+              
+            } else if (weight_type == 2) {
+              # Score differential weight
+              train_data$model_weights <- train_data$ScoreDiff_W
+              
+            } else if (weight_type == 3) {
+              # Combined weight
+              train_data$model_weights <- train_data$Total_W_Scaled
+              
+            } else if (weight_type == 4) {
+              # Season difference
+              train_data$model_weights <- train_data$Season_Diff_W
+              
+            } else if (weight_type == 5) {
+              # Combined with season
+              train_data$model_weights <- train_data$Total_Season_W_Scaled
+              
+            } else {
+              # No weights
+              train_data$model_weights <- rep(1, nrow(train_data))
+            }
+            
+            # Build model using maxit at 300 for now:
+            ep_model <- nnet::multinom(ep_formula, 
+                                       data = train_data,
+                                       weights = model_weights, maxit = 300)
+            
+            save(ep_model, file="models/ep_model_sg.RData")
+            saveRDS(ep_model,"models/ep_model.rds")
+            
+            # Generate and return prediction dataset (can add columns to
+            # return from the test_data in the mutate function below but
+            # only necessary variables are the predicted probabilities 
+            # and the actual events):
+            preds_ep <- data.frame(predict(ep_model, newdata = test_data, type = "probs")) %>%
+              mutate(NSH = test_data$NSH) 
+            
+            test_preds_ep<-cbind(test_data,preds_ep)
+            file_name <- paste0("data/EPA_Calcs_",x,".csv")
+            write.csv(test_preds_ep,file_name,row.names=FALSE)
+            return(test_preds_ep)
+            
+          }) %>%
+    return
+}
+
+calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3, 
+                                        ep_model_data) {
+  
+  # Create vector of seasons to generate hold out results for:
+  seasons <- unique(ep_model_data$year)
+  
+  # Generate the predictions for each holdout season:
+  map_dfr(seasons, 
+          function(x) {
+            
+            # Separate test and training data:
+            test_data <- ep_model_data %>%
+              filter(year == x)
+            train_data <- ep_model_data %>%
+              filter(year != x)
+            
+            # Create the various weight columns only using
+            # the train_data:
+            train_data <- train_data %>%
+              
+              mutate(
+                # 1 - drive difference
+                Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+                  (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+                
+                # 2 - score differential
+                ScoreDiff_W = (max(abs_diff) - abs_diff) / 
+                  (max(abs_diff) - min(abs_diff)),
+                
+                # 3 - combo of 1 and 2
+                Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+                Total_W_Scaled = (Total_W - min(Total_W)) / 
+                  (max(Total_W) - min(Total_W)),
+                
+                # 4 - difference from holdout season
+                Season_Diff = abs(year - x),
+                Season_Diff_W = (max(Season_Diff) - Season_Diff) / 
+                  (max(Season_Diff) - min(Season_Diff)),
+                
+                # 5 - combo of 1, 2, and 4
+                Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W + 
+                  Season_Diff_W,
+                Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) / 
+                  (max(Total_Season_W) - min(Total_Season_W)))
+            
+            # Type of weighting:
+            if (weight_type == 1){
+              # Drive difference weight
+              train_data$model_weights <- train_data$Drive_Score_Dist_W
+              
+            } else if (weight_type == 2) {
+              # Score differential weight
+              train_data$model_weights <- train_data$ScoreDiff_W
+              
+            } else if (weight_type == 3) {
+              # Combined weight
+              train_data$model_weights <- train_data$Total_W_Scaled
+              
+            } else if (weight_type == 4) {
+              # Season difference
+              train_data$model_weights <- train_data$Season_Diff_W
+              
+            } else if (weight_type == 5) {
+              # Combined with season
+              train_data$model_weights <- train_data$Total_Season_W_Scaled
+              
+            } else {
+              # No weights
+              train_data$model_weights <- rep(1, nrow(train_data))
+            }
+            
+            # Build model using maxit at 300 for now:
+            ep_model_sg <- nnet::multinom(ep_formula, 
+                                          data = train_data,
+                                          weights = model_weights, maxit = 300)
+            
+            save(ep_model_sg, file="models/ep_model_sg_cv_cal.RData")
+            saveRDS(ep_model_sg,"models/ep_model_sg.rds")
+            
+            # Generate prediction dataset (can add columns to
+            # return from the test_data in the mutate function below but
+            # only necessary variables are the predicted probabilities 
+            # and the actual events) from only using the ep_model
+            preds_ep <- data.frame(predict(ep_model, 
+                                           newdata = test_data, 
+                                           type = "probs")) %>%
+              mutate(NSH = test_data$NSH)
+            
+            # Build field goal model:
+            fg_contains = str_detect((train_data$play_type),"Field Goal")
+            fg_train_data <- train_data[fg_contains,]
+            
+            fg_model <- mgcv::bam(fg_formula, 
+                                  data = fg_train_data, family = "binomial")
+            
+            save(fg_model, file="models/fg_model_cv_cal.RData")
+            saveRDS(fg_model,"models/fg_model_cv_cal.rds")
+            # Now make a copy of the test data to then get EP probabilites 
+            # as if the field goals were missed:
+            fg_test_contains = str_detect((test_data$play_type),"Field Goal")
+            fg_test_data <- test_data[fg_test_contains,]
+            missed_fg_test_data <- fg_test_data %>%
+              # Subtract 5.065401 from TimeSecs since average time for FG att:
+              mutate(TimeSecsRem = TimeSecsRem - 5.065401,
+                   # Correct the yrdline100:
+                   adj_yd_line = 100 - (adj_yd_line + 8),
+                   # Not GoalToGo:
+                   Goal_To_Go = rep(FALSE,n()),
+                   # Now first down:
+                   down = rep("1", n()),
+                   # 10 yards to go
+                   log_ydstogo = rep(log(10),n()),
+                   # Create Under_TwoMinute_Warning indicator
+                   Under_two = ifelse(TimeSecsRem < 120,
+                                                    TRUE, FALSE))
+            
+
+
+            
+            # Get the missed test data predictions:
+            missed_fg_ep_preds <- data.frame(predict(ep_model, 
+                                                     newdata = missed_fg_test_data, 
+                                                     type = "probs"))
+            
+            # Find the rows where TimeSecsRem became 0 or negative and 
+            # make all the probs equal to 0:
+            end_game_i <- which(missed_fg_test_data$TimeSecsRem <= 0)
+            missed_fg_ep_preds[end_game_i,] <- rep(0,
+                                                   ncol(missed_fg_ep_preds))
+            
+            # Get the probability of making the field goal:
+            make_fg_prob <- as.numeric(mgcv::predict.bam(fg_model, 
+                                                         newdata = test_data, 
+                                                         type = "response"))
+            
+            # Multiply each value of the missed_fg_ep_preds by the 1 - make_fg_prob
+            missed_fg_ep_preds <- missed_fg_ep_preds * (1 - make_fg_prob)
+            
+            # Find the FG attempts in the test data:
+            fg_attempt_i <- which(str_detect((test_data$play_type),"Field Goal"))
+            fg_test_data <- test_data[fg_attempt_i,]
+            
+            # Now update the probabilities for the FG attempts 
+            # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
+            preds_ep[fg_attempt_i, "FG"] <- make_fg_prob[fg_attempt_i] + 
+              missed_fg_ep_preds[fg_attempt_i,"Opp FG"]
+            
+            # Update the other columns based on the opposite possession:
+            preds_ep[fg_attempt_i, "TD"] <- 
+              missed_fg_ep_preds[fg_attempt_i,"Opp TD"]
+            
+            preds_ep[fg_attempt_i, "Opp FG"] <- 
+              missed_fg_ep_preds[fg_attempt_i,"FG"]
+            
+            preds_ep[fg_attempt_i, "Opp TD"] <-
+              missed_fg_ep_preds[fg_attempt_i,"TD"]
+            
+            preds_ep[fg_attempt_i, "Safety"] <-
+              missed_fg_ep_preds[fg_attempt_i,"Opp Safety"]
+            preds_ep[fg_attempt_i, "Opp Safety"] <-
+              missed_fg_ep_preds[fg_attempt_i,"Safety"]
+            
+            preds_ep[fg_attempt_i, "No Score"] <- 
+              missed_fg_ep_preds[fg_attempt_i,"No Score"]
+            
+            test_preds_ep<-cbind(test_data,preds_ep)
+            file_name <- paste0("data/EPA_FG_Calcs_",x,".csv")
+            write.csv(test_preds_ep,file_name,row.names=FALSE)
+            
+            return(test_preds_ep)
+
+          }) %>%
+    return
+}
+
+
 prep_df_epa2 <- function(dat){
   turnover_play_type = c(
     'Fumble Recovery (Opponent)',
@@ -82,7 +351,7 @@ prep_df_epa2 <- function(dat){
       id = as.numeric(id),
       clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
       raw_secs = clock.minutes * 60 + clock.seconds,
-      log_ydstogo = log(adj_yd_line),
+      log_ydstogo = log(distance),
       half = ifelse(period <= 2, 1, 2),
       new_yardline = 0,
       new_down = 0,
@@ -107,7 +376,7 @@ prep_df_epa2 <- function(dat){
       new_distance = lead(distance),
       new_yardline = lead(adj_yd_line),
       new_TimeSecsRem = lead(TimeSecsRem),
-      new_log_ydstogo = log(new_yardline),
+      new_log_ydstogo = log(new_distance),
       new_Goal_To_Go = lead(Goal_To_Go),
       # new under two minute warnings
       new_Under_two = new_TimeSecsRem <= 120,

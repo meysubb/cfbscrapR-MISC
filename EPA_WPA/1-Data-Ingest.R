@@ -73,18 +73,12 @@ drive_join_df = dat_merge %>% select(home_team,drive_id) %>%
 
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
-clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inner_join(drive_join_df, by =
-                                                                                         c('drive_id')) %>%
-  arrange(id_play) %>%
-  mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
+clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inner_join(drive_join_df,by=c('drive_id')) %>%
+  arrange(drive_id) %>%
+  mutate_at(vars(clock.minutes, clock.seconds), ~replace_na(., 0)) %>%
   mutate(
     clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
     raw_secs = clock.minutes * 60 + clock.seconds,
-    # coef = home_team == defense,
-    # coef2 = home_team == offense,
-    ## for duke albama this works
-    ## does it work for oregon-auburn or miami - florida?
-    ## seems to be weird for neutral site games
     half = ifelse(period <= 2, 1, 2),
     # make sure all kick off downs are -1
     down = ifelse(down == 5 & str_detect(play_type, "Kickoff"), -1, down)
@@ -113,15 +107,6 @@ clean_drive = dat_merge %>% mutate(
   scoring = ifelse(pts_drive!=0,TRUE,scoring)
 ) %>% arrange(game_id,drive_id)
 
-## Find next scoring drive.
-## try to find next score for just one game, then apply throughout
-# g_ids = clean_drive$game_id %>% sample(5)
-# sample_test = clean_drive %>% filter(game_id %in% g_ids) %>%
-#   select(game_id,drive_id,offense,defense,scoring,start_yardline,end_yardline,plays,drive_result,pts_drive,start_period) %>%
-#   mutate(
-#     half = ifelse(start_period<=2,1,2)
-#   ) %>% group_by(half) %>% arrange(game_id,drive_id)
-
 ## get the next score half
 ## with the drive_details
 library(purrr)
@@ -134,7 +119,7 @@ clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
 
 # drive, and the next drives score details
 # join this back to the pbp
-clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH,scoring) %>%
+clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH,DSH,scoring) %>%
   mutate(
     Next_Score = case_when(
       NSH == 7 ~ "TD",
@@ -150,13 +135,6 @@ clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select) %>% mutate(
   log_ydstogo = log(distance),
 )
-
-# ## Albama vs Duke game is off.
-# bool_chk = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Alabama","Duke") & pbp_full_df$defense %in% c("Alabama","Duke")
-# bool_chk2 = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Florida","Miami") & pbp_full_df$defense %in% c("Florida","Miami")
-# bool_chk = bool_chk | bool_chk2
-# pbp_full_df$adj_yd_line[bool_chk] = 100 * (1-pbp_full_df$coef2[bool_chk]) + (2*pbp_full_df$coef2[bool_chk] - 1)*pbp_full_df$yard_line[bool_chk]
-# pbp_full_df$log_ydstogo[bool_chk] = log(pbp_full_df$adj_yd_line[bool_chk])
 
 # Adjust Field Goal by 17 yards
 fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
@@ -180,6 +158,25 @@ check_for_full_game = pbp_full_df %>%  filter(period==4) %>% group_by(game_id,cl
   summarize(val=n()) %>% filter(clock.minutes == min(clock.minutes))
 keep_full_games = check_for_full_game %>% filter(clock.minutes==0) %>% pull(game_id)
 
-pbp_full_df = pbp_full_df %>% filter(game_id %in% keep_full_games)
+pbp_full_df = pbp_full_df %>% 
+  filter(game_id %in% keep_full_games) %>%
+  mutate(    
+    # calculate absolute score difference
+    abs_diff = abs(offense_score - defense_score),
+    # Calculate the drive difference between the next score drive and the 
+    # current play drive:
+    Drive_Score_Dist = DSH - as.numeric(drive_id),
+    
+    # Create a weight column based on difference in drives between play 
+    # and next score:
+    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+    # Create a weight column based on score differential:
+    ScoreDiff_W = (max(abs_diff) - abs_diff) / 
+      (max(abs_diff) - min(abs_diff)),
+    # Add these weights together and scale again:
+    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+    Total_W_Scaled = (Total_W - min(Total_W)) / 
+      (max(Total_W) - min(Total_W)))
 
 saveRDS(pbp_full_df,"data/pbp.rds")

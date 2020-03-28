@@ -1,7 +1,12 @@
+
 library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
+library(tidyverse)
+library(nnet)
+library(mgcv)
+
 source("6-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds")
@@ -30,9 +35,10 @@ remove_plays <-
 
 
 pbp_no_OT <-
-  pbp_full_df %>%
+  pbp_full_df %>% filter(down > 0) %>%
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
+  filter(!is.na(game_id) %>%
   filter(log_ydstogo != -Inf) %>%
   filter(down>0) %>% 
   rename(TimeSecsRem = raw_secs) %>%
@@ -48,16 +54,15 @@ pbp_no_OT <-
     id_play = as.numeric(id_play)
   ) %>% filter(!is.na(game_id))
 
-# pbp_no_OT %>% filter(year>=2014,year<2019)
-# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-# fg_no_OT <- pbp_no_OT[fg_contains,]
-#
-# fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
-#                        data = fg_no_OT, family = "binomial")
-# saveRDS(fg_model,"models/fg_model.rds")
+fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
+fg_no_OT <- pbp_no_OT[fg_contains,]
+
+fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
+                       data = fg_no_OT, family = "binomial")
+saveRDS(fg_model,"models/fg_model.rds")
 # Load FG Model
-fg_model = readRDS("models/fg_model.rds")
-##+ Under_TwoMinute_Warning
+#fg_model = readRDS("models/fg_model.rds")
+summary(fg_model)
 # weight factor, normalized absolute score differential.
 # flip the normilization so that larger scores don't matter as much as closer scores
 wts = pbp_no_OT %>%
@@ -65,7 +70,7 @@ wts = pbp_no_OT %>%
     weights_raw = abs(offense_score - defense_score),
     weights = (max(weights_raw) - weights_raw)/(max(weights_raw)-min(weights_raw))
   ) %>% pull(weights)
-# # # need
+
 ep_model <-
   nnet::multinom(
     Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
@@ -76,9 +81,46 @@ ep_model <-
     maxit = 300,
     weights = wts
   )
-#saveRDS(ep_model,"models/ep_model.rds")
+
+# Create the LOSO predictions for the selected cfbscrapR model:
+ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("NSH ~ 
+                                 TimeSecsRem + adj_yd_line + 
+                                 down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
+                                 adj_yd_line*down + Goal_To_Go*log_ydstogo + 
+                                 Under_two"),ep_model_data = pbp_no_OT)
+
+# Save dataset in data folder as ep_model_loso_preds.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
+
+# Create the LOSO predictions for the selected cfbscrapR models:
+ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("NSH ~ 
+                                                                 TimeSecsRem + 
+                                                                 adj_yd_line + down + 
+                                                                 log_ydstogo + Goal_To_Go + 
+                                                                 log_ydstogo*down + 
+                                                                 adj_yd_line*down + 
+                                                                 Goal_To_Go*log_ydstogo + 
+                                                                 Under_two"),
+                                                      as.formula("scoring ~ s(adj_yd_line)"),
+                                                      ep_model_data = pbp_no_OT)
+
+write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
+
+# # # need
+# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
+#                                down + log_ydstogo + log_ydstogo*down +
+#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
+#                            weights = wts)
+
+
+
+ep_model
+saveRDS(ep_model,"models/ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("models/ep_model.rds")
+
 
 
 ## At this point, let's create a function to predict EP_before and EP_after, and calculate EPA
@@ -328,58 +370,54 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
 
 
 ### Figure out who is who, so you can attribute players to it.
-# identify_players <- function(pbp_df) {
-#   pbp_df = pbp_df %>% mutate(
-#     passer_name = NA,
-#     receiver_name = NA,
-#     rusher_name = NA,
-#     pass_rusher_name_1 = NA,
-#     pass_rusher_name_2 = NA,
-#     force_fumble_player = NA,
-#     sacked_player_name = NA,
-#     int_player_name = NA,
-#     deflect_player_name = NA
-#   )
-#
-#   pbp_df = pbp_df %>%
-#     mutate(
-#       ## Passes - QB
-#       passer_name = str_split(play_text, "pass") %>% map_chr(., 1),
-#       passer_name = ifelse(str_detect(play_text, "pass"), passer_name, NA),
-#       ## all rushes
-#       rusher_name = str_split(play_text, "run for") %>% map_chr(., 1),
-#       rusher_name = ifelse(
-#         is.na(rusher_name),
-#         str_split(play_text, "rush") %>% map_chr(., 1),
-#         rusher_name
-#       ),
-#       rusher_name = ifelse(
-#         str_detect(play_text, "rush") |
-#           str_detect(play_text, "run for"),
-#         rusher_name,
-#         NA
-#       ),
-#     )
-#
-#   ## Passes - WR
-#   completed_pass = str_detect(pbp_df$play_text, "pass complete to")
-#   incomplete_pass = str_detect(pbp_df$play_text, "pass incomplete to")
-#   pbp_df$receiver_name[completed_pass] = str_split(pbp_df$play_text[completed_pass], "pass complete to") %>%
-#     map_chr(., 2) %>% str_split(., "for") %>% map_chr(., 1)
-#   pbp_df$receiver_name[incomplete_pass] = str_split(pbp_df$play_text[incomplete_pass], "pass incomplete to") %>%   map_chr(., 2)
-#
-#   ## Defensive plays
-#   fumble = str_detect(pbp_df$play_text, 'forced by')
-#   pbp_df$force_fumble_player  <-
-#     str_split(pbp_df$play_text[fumble], 'forced by') %>% map_chr(., 2) %>% str_split(., ",") %>% map_chr(., 1)
-#
-#   int_td = str_detect(pbp_df$play_text, 'pass intercepted for a TD')
-#   int = str_detect(pbp_df$play_text, 'pass intercepted') & (!int_td)
-# }
-#
-# ## Separate by Year into a list, then run EPA
-st = pbp_full_df %>% filter(year>=2015)
-all_years = split(st, st$year)
+identify_players <- function(pbp_df) {
+  pbp_df = pbp_df %>% mutate(
+    passer_name = NA,
+    receiver_name = NA,
+    rusher_name = NA,
+    pass_rusher_name_1 = NA,
+    pass_rusher_name_2 = NA,
+    force_fumble_player = NA,
+    sacked_player_name = NA,
+    int_player_name = NA,
+    deflect_player_name = NA
+  )
+
+  pbp_df = pbp_df %>%
+    mutate(
+      ## Passes - QB
+      passer_name = str_split(play_text, "pass") %>% map_chr(., 1),
+      passer_name = ifelse(str_detect(play_text, "pass"), passer_name, NA),
+      ## all rushes
+      rusher_name = str_split(play_text, "run for") %>% map_chr(., 1),
+      rusher_name = ifelse(
+        is.na(rusher_name),
+        str_split(play_text, "rush") %>% map_chr(., 1),
+        rusher_name
+      ),
+      rusher_name = ifelse(
+        str_detect(play_text, "rush") |
+          str_detect(play_text, "run for"),
+        rusher_name,
+        NA
+      )
+    )
+
+  ## Passes - WR
+  completed_pass = str_detect(pbp_df$play_text, "pass complete to")
+  incomplete_pass = str_detect(pbp_df$play_text, "pass incomplete to")
+  pbp_df$receiver_name[completed_pass] = str_split(pbp_df$play_text[completed_pass], "pass complete to") %>%
+    map_chr(., 2) %>% str_split(., "for") %>% map_chr(., 1)
+  pbp_df$receiver_name[incomplete_pass] = str_split(pbp_df$play_text[incomplete_pass], "pass incomplete to") %>%   map_chr(., 2)
+
+  ## Defensive plays
+  fumble = str_detect(pbp_df$play_text, 'forced by')
+  pbp_df$force_fumble_player  <-
+    str_split(pbp_df$play_text[fumble], 'forced by') %>% map_chr(., 2) %>% str_split(., ",") %>% map_chr(., 1)
+
+  int_td = str_detect(pbp_df$play_text, 'pass intercepted for a TD')
+  int = str_detect(pbp_df$play_text, 'pass intercepted') & (!int_td)
+}
 
 all_years_epa = lapply(all_years, function(x) {
   year = unique(x$year)
