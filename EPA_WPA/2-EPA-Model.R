@@ -1,7 +1,12 @@
+
 library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
+library(tidyverse)
+library(nnet)
+library(mgcv)
+
 source("6-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds")
@@ -27,7 +32,7 @@ remove_plays <-
   )
 
 pbp_no_OT <-
-  pbp_full_df %>% filter(year>=2014,year<2019,period <= 4, down > 0) %>%
+  pbp_full_df %>% filter(year>=2010,year<=2019,period <= 4, down > 0) %>%
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(log_ydstogo != -Inf) %>%
@@ -40,33 +45,66 @@ pbp_no_OT <-
       distance >= adj_yd_line
     ),
     Under_two = TimeSecsRem <= 120,
-    id = as.numeric(id)
+    down = factor(down),
+    id = as.numeric(id_play)
   ) %>% filter(!is.na(game_id))
 
-# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-# fg_no_OT <- pbp_no_OT[fg_contains,]
-#
-# fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
-#                        data = fg_no_OT, family = "binomial")
-# saveRDS(fg_model,"models/fg_model.rds")
+fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
+fg_no_OT <- pbp_no_OT[fg_contains,]
+
+fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
+                       data = fg_no_OT, family = "binomial")
+saveRDS(fg_model,"models/fg_model.rds")
 # Load FG Model
 fg_model = readRDS("models/fg_model.rds")
-##+ Under_TwoMinute_Warning
+summary(fg_model)
 # weight factor, normalized absolute score differential.
 # flip the normilization so that larger scores don't matter as much as closer scores
-# wts = pbp_no_OT %>%
-#   mutate(
-#     weights_raw = abs(offense_score - defense_score),
-#     weights = (max(weights_raw) - weights_raw)/(max(weights_raw)-min(weights_raw))
-#   ) %>% pull(weights)
+wts = pbp_no_OT %>%
+  mutate(
+    weights_raw = abs(offense_score - defense_score),
+    weights = (max(weights_raw) - weights_raw)/(max(weights_raw)-min(weights_raw))
+  ) %>% pull(weights)
+
+# Create the LOSO predictions for the selected cfbscrapR model:
+ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("NSH ~ 
+                                 TimeSecsRem + adj_yd_line + 
+                                 down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
+                                 adj_yd_line*down + Goal_To_Go*log_ydstogo + 
+                                 Under_two"),ep_model_data = pbp_no_OT)
+
+# Save dataset in data folder as ep_model_loso_preds.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
+
+# Create the LOSO predictions for the selected cfbscrapR models:
+ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("NSH ~ 
+                                                                 TimeSecsRem + 
+                                                                 adj_yd_line + down + 
+                                                                 log_ydstogo + Goal_To_Go + 
+                                                                 log_ydstogo*down + 
+                                                                 adj_yd_line*down + 
+                                                                 Goal_To_Go*log_ydstogo + 
+                                                                 Under_two"),
+                                                      as.formula("scoring ~ s(adj_yd_line)"),
+                                                      ep_model_data = pbp_no_OT)
+
+write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
+
 # # # need
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
 #                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
 #                            weights = wts)
-# saveRDS(ep_model,"models/ep_model.rds")
+
+
+
+ep_model
+saveRDS(ep_model,"models/ep_model.rds")
 # Load EPA Model
 ep_model = readRDS("models/ep_model.rds")
+
 
 
 ## At this point, let's create a function to predict EP_before and EP_after, and calculate EPA
@@ -329,7 +367,7 @@ identify_players <- function(pbp_df) {
           str_detect(play_text, "run for"),
         rusher_name,
         NA
-      ),
+      )
     )
 
   ## Passes - WR

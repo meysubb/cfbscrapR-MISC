@@ -25,17 +25,17 @@ drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 
 
 dat_merge <- drive_dat %>% merge(schedule_df_clean)
-# colnames(dat_merge)[7] <- "drive_id"
-# dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
-# write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
+colnames(dat_merge)[7] <- "drive_id"
+dat_merge <- dat_merge %>% select(-home_line_scores,-away_line_scores)
+write.csv(dat_merge,"data/clean_drives_data.csv",row.names = FALSE)
 
 dat_merge <- read_csv("data/clean_drives_data.csv")
 
 week_vector = 1:15
-year_vector = 2010:2018
+year_vector = 2010:2019
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5),c(2019,6),
-                        c(2019,7),c(2019,8),c(2019,9),c(2019,10),c(2019,11))
+# weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5),c(2019,6),
+#                         c(2019,7),c(2019,8),c(2019,9),c(2019,10),c(2019,11))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
@@ -58,7 +58,8 @@ all_years = bind_rows(year_split) #%>% inner_join(drive)
 # some of these were mis-labelled
 # fix
 td_e = str_detect(all_years$play_text,"TD") | str_detect(all_years$play_text,"Touchdown") | str_detect(all_years$play_text,"TOUCHDOWN")
-all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e] <- paste0(all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e]," Touchdown")
+all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e] <- 
+  paste0(all_years$play_type[grepl("KICK",all_years$play_text) & str_detect(all_years$play_text,"fumble") & td_e]," Touchdown")
 write.csv(all_years,"data/raw_all_years.csv",row.names = FALSE)
 #all_years <- read_csv("data/raw_all_years.csv")
 
@@ -68,13 +69,13 @@ drive_join_df = dat_merge %>% select(home_team,drive_id) %>%
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
 clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inner_join(drive_join_df,by=c('drive_id')) %>%
-  arrange(id) %>%
+  arrange(drive_id) %>%
   mutate_at(vars(clock.minutes, clock.seconds), ~replace_na(., 0)) %>%
   mutate(
     clock.minutes = ifelse(period %in% c(1,3),15+clock.minutes,clock.minutes),
     raw_secs = clock.minutes * 60 + clock.seconds,
-    coef = home_team == defense,
-    coef2 = home_team == offense,
+    coef = home_team == defense_play,
+    coef2 = home_team == offense_play,
     ## for duke albama this works
     ## does it work for oregon-auburn or miami - florida?
     ## seems to be weird for neutral site games
@@ -125,7 +126,7 @@ clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
 
 # drive, and the next drives score details
 # join this back to the pbp
-clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH,scoring) %>%
+clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,defense,neutral_site,NSH,DSH,scoring) %>%
   mutate(
     Next_Score = case_when(
       NSH == 7 ~ "TD",
@@ -140,7 +141,7 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
 clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select) %>% mutate(
   adj_yd_line = 100 * (1-coef) + (2*coef-1)*yard_line,
-  log_ydstogo = log(adj_yd_line),
+  log_ydstogo = log(distance)
 )
 
 ## Albama vs Duke game is off. 
@@ -148,20 +149,40 @@ bool_chk = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Alabama","Duke
 bool_chk2 = pbp_full_df$year == 2019 & pbp_full_df$offense %in% c("Florida","Miami") & pbp_full_df$defense %in% c("Florida","Miami")
 bool_chk = bool_chk | bool_chk2
 pbp_full_df$adj_yd_line[bool_chk] = 100 * (1-pbp_full_df$coef2[bool_chk]) + (2*pbp_full_df$coef2[bool_chk] - 1)*pbp_full_df$yard_line[bool_chk]
-pbp_full_df$log_ydstogo[bool_chk] = log(pbp_full_df$adj_yd_line[bool_chk])
+pbp_full_df$log_ydstogo[bool_chk] = log(pbp_full_df$distance[bool_chk])
 
 # Adjust Field Goal by 17 yards
 fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
 pbp_full_df[fg_inds,"adj_yd_line"] = pbp_full_df[fg_inds,"adj_yd_line"] + 17
-pbp_full_df[fg_inds,"log_ydstogo"] = log(pbp_full_df[fg_inds,"adj_yd_line"])
+pbp_full_df[fg_inds,"log_ydstogo"] = log(pbp_full_df[fg_inds,"distance"])
 
-
-## ESPN doesn't report full games in some instances, and that really throws things off. 
+## ESPN doesn't report full games in some instances, and 
+## that really throws things off. 
 ## get rid of these. Thanks
 check_for_full_game = pbp_full_df %>%  filter(period==4) %>% group_by(game_id,clock.minutes) %>% 
   summarize(val=n()) %>% filter(clock.minutes == min(clock.minutes))
 keep_full_games = check_for_full_game %>% filter(clock.minutes==0) %>% pull(game_id)
 
-pbp_full_df = pbp_full_df %>% filter(game_id %in% keep_full_games)
+pbp_full_df = pbp_full_df %>% 
+  filter(game_id %in% keep_full_games) %>%
+  mutate(    
+    # calculate absolute score difference
+    abs_diff = abs(offense_score - defense_score),
+    # Calculate the drive difference between the next score drive and the 
+    # current play drive:
+    Drive_Score_Dist = DSH - as.numeric(drive_id),
+    
+    # Create a weight column based on difference in drives between play 
+    # and next score:
+    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+    # Create a weight column based on score differential:
+    ScoreDiff_W = (max(abs_diff) - abs_diff) / 
+      (max(abs_diff) - min(abs_diff)),
+    # Add these weights together and scale again:
+    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+    Total_W_Scaled = (Total_W - min(Total_W)) / 
+      (max(Total_W) - min(Total_W)))
 
 saveRDS(pbp_full_df,"data/pbp.rds")
+write.csv(pbp_full_df,"data/pbp_full_df.csv",row.names=FALSE)
