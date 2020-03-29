@@ -7,7 +7,6 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
   # Generate the predictions for each holdout season:
   map_dfr(seasons, 
           function(x) {
-            
             # Separate test and training data:
             test_data <- ep_model_data %>%
               filter(year == x)
@@ -72,8 +71,10 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
                                        data = train_data,
                                        weights = model_weights, maxit = 300)
             print("Saving ep_model in RData and rds formats")
-            save(ep_model, file="models/ep_model.RData")
-            saveRDS(ep_model,"models/ep_model.rds")
+            rdat = glue::glue("models/ep_model_season_{x}.RData")
+            rds = glue::glue("models/ep_model_season_{x}.rds")
+            save(ep_model, file=rdat)
+            saveRDS(ep_model,rds)
             
             # Generate and return prediction dataset (can add columns to
             # return from the test_data in the mutate function below but

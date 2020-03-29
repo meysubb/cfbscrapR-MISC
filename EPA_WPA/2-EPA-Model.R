@@ -34,8 +34,8 @@ remove_plays <-
 ## need to remove games with 
 
 
-pbp_no_OT <-
-  pbp_full_df %>% filter(down > 0) %>%
+pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
+  filter(year>=2015) %>%   
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(!is.na(game_id)) %>%
@@ -54,15 +54,15 @@ pbp_no_OT <-
     id_play = as.numeric(id_play)
   ) %>% filter(!is.na(game_id))
 
-fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-fg_no_OT <- pbp_no_OT[fg_contains,]
-
-fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
-                      data = fg_no_OT, family = "binomial")
-saveRDS(fg_model,"models/fg_model.rds")
-# Load FG Model
-#fg_model = readRDS("models/fg_model.rds")
-summary(fg_model)
+# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
+# fg_no_OT <- pbp_no_OT[fg_contains,]
+# 
+# fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
+#                       data = fg_no_OT, family = "binomial")
+# saveRDS(fg_model,"models/fg_model.rds")
+# # Load FG Model
+# #fg_model = readRDS("models/fg_model.rds")
+# summary(fg_model)
 # weight factor, normalized absolute score differential.
 # flip the normilization so that larger scores don't matter as much as closer scores
 wts = pbp_no_OT %>%
@@ -71,16 +71,16 @@ wts = pbp_no_OT %>%
     weights = (max(weights_raw) - weights_raw)/(max(weights_raw)-min(weights_raw))
   ) %>% pull(weights)
 
-ep_model <-
-  nnet::multinom(
-    Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
-      log_ydstogo * down +
-      yards_to_goal * down + 
-      Goal_To_Go * log_ydstogo,
-    data = pbp_no_OT,
-    maxit = 300,
-    weights = wts
-  )
+# ep_model <-
+#   nnet::multinom(
+#     Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
+#       log_ydstogo * down +
+#       yards_to_goal * down + 
+#       Goal_To_Go * log_ydstogo,
+#     data = pbp_no_OT,
+#     maxit = 300,
+#     weights = wts
+#   )
 
 # Create the LOSO predictions for the selected cfbscrapR model:
 ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
