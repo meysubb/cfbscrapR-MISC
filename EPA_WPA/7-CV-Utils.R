@@ -94,7 +94,6 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
 
 calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3, 
                                         ep_model_data) {
-  
   # Create vector of seasons to generate hold out results for:
   seasons <- unique(ep_model_data$year)
   
@@ -198,7 +197,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
               # Subtract 5.065401 from TimeSecs since average time for FG att:
               mutate(TimeSecsRem = TimeSecsRem - 5.065401,
                      # Correct the yrdline100:
-                     adj_yd_line = 100 - (adj_yd_line + 8),
+                     yards_to_goal = 100 - (yards_to_goal + 8),
                      # Not GoalToGo:
                      Goal_To_Go = rep(FALSE,n()),
                      # Now first down:
@@ -314,7 +313,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     TimeSecsRem,
     down,
     distance,
-    adj_yd_line,
+    yards_to_goal,
     log_ydstogo,
     Under_two,
     Goal_To_Go
@@ -358,7 +357,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   ## 25 yard line in 2012 and onwards
   kickoff_ind = (pred_df$play_type =='Kickoff')
   new_kick = pred_df[kickoff_ind,]
-  new_kick["adj_yd_line"] = 75
+  new_kick["yards_to_goal"] = 75
   new_kick["log_ydstogo"] = log(75)
   ep_kickoffs = as.data.frame(predict(ep_model, new_kick, type = 'prob'))
   pred_df[(pred_df$play_type =='Kickoff'),"ep_before"] = apply(ep_kickoffs,1,function(row){
@@ -405,19 +404,19 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
              TimeSecsRem,
              down,
              distance,
-             adj_yd_line,
+             yards_to_goal,
              yards_gained,
              TimeSecsRem_end,
              down_end,
              distance_end,
-             adj_yd_line_end,
+             yards_to_goal_end,
              turnover_end,
              Under_two_end,
              everything()
            ) %>%
     mutate(
-      rz_play = ifelse((adj_yd_line <= 20), 1, 0),
-      scoring_opp = ifelse((adj_yd_line <= 40), 1, 0),
+      rz_play = ifelse((yards_to_goal <= 20), 1, 0),
+      scoring_opp = ifelse((yards_to_goal <= 40), 1, 0),
       pass = if_else(
         play_type == "Pass Reception" | play_type == "Passing Touchdown" |
           play_type == "Sack" |
