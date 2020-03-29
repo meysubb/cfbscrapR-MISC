@@ -169,7 +169,6 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             
             save(ep_model, file="models/ep_model_cv_cal.RData")
             saveRDS(ep_model,"models/ep_model.rds")
-            
             # Generate prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
             # only necessary variables are the predicted probabilities 
@@ -179,6 +178,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
                                            type = "probs")) %>%
               mutate(NSH = test_data$NSH,
                      Next_Score = test_data$Next_Score)
+
             
             # Build field goal model:
             fg_contains = str_detect((train_data$play_type),"Field Goal")
@@ -256,11 +256,11 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             
             preds_ep[fg_attempt_i, "No_Score"] <- 
               missed_fg_ep_preds[fg_attempt_i,"No_Score"]
+
             
             test_preds_ep<-cbind(test_data,preds_ep)
             file_name <- paste0("data/EPA_FG_Calcs_",x,".csv")
             write.csv(test_preds_ep,file_name,row.names=FALSE)
-            
             
             return(test_preds_ep)
             
