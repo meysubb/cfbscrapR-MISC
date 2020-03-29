@@ -57,7 +57,7 @@ pbp_no_OT <-
 fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
 fg_no_OT <- pbp_no_OT[fg_contains,]
 
-fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
+fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
                       data = fg_no_OT, family = "binomial")
 saveRDS(fg_model,"models/fg_model.rds")
 # Load FG Model
@@ -109,9 +109,9 @@ ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~
 write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
 
 # # # need
-# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
+# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
-#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
+#                               yards_to_goal*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
 #                            weights = wts)
 
 
