@@ -35,7 +35,7 @@ remove_plays <-
 
 
 pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
-  filter(year>=2015) %>%   
+  filter(year>=2014) %>%   
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(!is.na(game_id)) %>%

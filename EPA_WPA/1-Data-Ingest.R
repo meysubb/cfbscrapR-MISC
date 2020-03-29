@@ -139,7 +139,7 @@ fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
 ep_inds = str_detect(pbp_full_df$play_type,"Extra Point")
 kicker_inds = fg_inds | ep_inds
 pbp_full_df[kicker_inds,"yards_to_goal"] = pbp_full_df[kicker_inds,"yards_to_goal"] + 17
-pbp_full_df[kicker_inds,"log_ydstogo"] = log(pbp_full_df[kicker_inds,"yards_to_goal"])
+pbp_full_df[kicker_inds,"log_ydstogo"] = log(pbp_full_df[kicker_inds,"distance"])
 
 ## Remove OT games
 OT_games = pbp_full_df %>% group_by(game_id) %>% 
