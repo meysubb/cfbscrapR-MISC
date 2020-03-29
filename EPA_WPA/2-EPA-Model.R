@@ -1,4 +1,3 @@
-
 library(cfbscrapR)
 library(dplyr)
 library(readr)
@@ -58,8 +57,8 @@ pbp_no_OT <-
 fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
 fg_no_OT <- pbp_no_OT[fg_contains,]
 
-fg_model <- mgcv::bam(scoring ~ s(adj_yd_line),
-                       data = fg_no_OT, family = "binomial")
+fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
+                      data = fg_no_OT, family = "binomial")
 saveRDS(fg_model,"models/fg_model.rds")
 # Load FG Model
 #fg_model = readRDS("models/fg_model.rds")
@@ -84,11 +83,11 @@ ep_model <-
   )
 
 # Create the LOSO predictions for the selected cfbscrapR model:
-ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("NSH ~ 
-                                 TimeSecsRem + adj_yd_line + 
-                                 down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
-                                 adj_yd_line*down + Goal_To_Go*log_ydstogo + 
-                                 Under_two"),ep_model_data = pbp_no_OT)
+ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
+                                                           TimeSecsRem + yards_to_goal + 
+                                                           down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
+                                                           yards_to_goal*down + Goal_To_Go*log_ydstogo + 
+                                                           Under_two"),ep_model_data = pbp_no_OT)
 
 # Save dataset in data folder as ep_model_loso_preds.csv
 # (NOTE: this dataset is not pushed due to its size exceeding
@@ -96,23 +95,23 @@ ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("NSH ~
 write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
 
 # Create the LOSO predictions for the selected cfbscrapR models:
-ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("NSH ~ 
+ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~ 
                                                                  TimeSecsRem + 
-                                                                 adj_yd_line + down + 
+                                                                 yards_to_goal + down + 
                                                                  log_ydstogo + Goal_To_Go + 
                                                                  log_ydstogo*down + 
-                                                                 adj_yd_line*down + 
+                                                                 yards_to_goal*down + 
                                                                  Goal_To_Go*log_ydstogo + 
                                                                  Under_two"),
-                                                      as.formula("scoring ~ s(adj_yd_line)"),
+                                                      as.formula("scoring ~ s(yards_to_goal)"),
                                                       ep_model_data = pbp_no_OT)
 
 write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
 
 # # # need
-# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + adj_yd_line + Under_two +
+# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
 #                                down + log_ydstogo + log_ydstogo*down +
-#                               adj_yd_line*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
+#                               yards_to_goal*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
 #                            weights = wts)
 
 

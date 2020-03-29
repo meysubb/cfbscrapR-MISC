@@ -71,8 +71,8 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             ep_model <- nnet::multinom(ep_formula, 
                                        data = train_data,
                                        weights = model_weights, maxit = 300)
-            
-            save(ep_model, file="models/ep_model_sg.RData")
+            print("Saving ep_model in RData and rds formats")
+            save(ep_model, file="models/ep_model.RData")
             saveRDS(ep_model,"models/ep_model.rds")
             
             # Generate and return prediction dataset (can add columns to
@@ -80,7 +80,8 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             # only necessary variables are the predicted probabilities 
             # and the actual events):
             preds_ep <- data.frame(predict(ep_model, newdata = test_data, type = "probs")) %>%
-              mutate(NSH = test_data$NSH) 
+              mutate(NSH = test_data$NSH,
+                     Next_Score = test_data$Next_Score) 
             
             test_preds_ep<-cbind(test_data,preds_ep)
             file_name <- paste0("data/EPA_Calcs_",x,".csv")
@@ -93,7 +94,6 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
 
 calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3, 
                                         ep_model_data) {
-  
   # Create vector of seasons to generate hold out results for:
   seasons <- unique(ep_model_data$year)
   
@@ -163,13 +163,12 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             }
             
             # Build model using maxit at 300 for now:
-            ep_model_sg <- nnet::multinom(ep_formula, 
-                                          data = train_data,
-                                          weights = model_weights, maxit = 300)
+            ep_model <- nnet::multinom(ep_formula, 
+                                       data = train_data,
+                                       weights = model_weights, maxit = 300)
             
-            save(ep_model_sg, file="models/ep_model_sg_cv_cal.RData")
-            saveRDS(ep_model_sg,"models/ep_model_sg.rds")
-            
+            save(ep_model, file="models/ep_model_cv_cal.RData")
+            saveRDS(ep_model,"models/ep_model.rds")
             # Generate prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
             # only necessary variables are the predicted probabilities 
@@ -177,7 +176,9 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             preds_ep <- data.frame(predict(ep_model, 
                                            newdata = test_data, 
                                            type = "probs")) %>%
-              mutate(NSH = test_data$NSH)
+              mutate(NSH = test_data$NSH,
+                     Next_Score = test_data$Next_Score)
+
             
             # Build field goal model:
             fg_contains = str_detect((train_data$play_type),"Field Goal")
@@ -196,7 +197,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
               # Subtract 5.065401 from TimeSecs since average time for FG att:
               mutate(TimeSecsRem = TimeSecsRem - 5.065401,
                      # Correct the yrdline100:
-                     adj_yd_line = 100 - (adj_yd_line + 8),
+                     yards_to_goal = 100 - (yards_to_goal + 8),
                      # Not GoalToGo:
                      Goal_To_Go = rep(FALSE,n()),
                      # Now first down:
@@ -236,25 +237,26 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             # Now update the probabilities for the FG attempts 
             # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
             preds_ep[fg_attempt_i, "FG"] <- make_fg_prob[fg_attempt_i] + 
-              missed_fg_ep_preds[fg_attempt_i,"Opp FG"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp.FG"]
             
             # Update the other columns based on the opposite possession:
             preds_ep[fg_attempt_i, "TD"] <- 
-              missed_fg_ep_preds[fg_attempt_i,"Opp TD"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp.TD"]
             
-            preds_ep[fg_attempt_i, "Opp FG"] <- 
+            preds_ep[fg_attempt_i, "Opp.FG"] <- 
               missed_fg_ep_preds[fg_attempt_i,"FG"]
             
-            preds_ep[fg_attempt_i, "Opp TD"] <-
+            preds_ep[fg_attempt_i, "Opp.TD"] <-
               missed_fg_ep_preds[fg_attempt_i,"TD"]
             
             preds_ep[fg_attempt_i, "Safety"] <-
-              missed_fg_ep_preds[fg_attempt_i,"Opp Safety"]
-            preds_ep[fg_attempt_i, "Opp Safety"] <-
+              missed_fg_ep_preds[fg_attempt_i,"Opp.Safety"]
+            preds_ep[fg_attempt_i, "Opp.Safety"] <-
               missed_fg_ep_preds[fg_attempt_i,"Safety"]
             
-            preds_ep[fg_attempt_i, "No Score"] <- 
-              missed_fg_ep_preds[fg_attempt_i,"No Score"]
+            preds_ep[fg_attempt_i, "No_Score"] <- 
+              missed_fg_ep_preds[fg_attempt_i,"No_Score"]
+
             
             test_preds_ep<-cbind(test_data,preds_ep)
             file_name <- paste0("data/EPA_FG_Calcs_",x,".csv")
@@ -311,7 +313,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     TimeSecsRem,
     down,
     distance,
-    adj_yd_line,
+    yards_to_goal,
     log_ydstogo,
     Under_two,
     Goal_To_Go
@@ -355,7 +357,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   ## 25 yard line in 2012 and onwards
   kickoff_ind = (pred_df$play_type =='Kickoff')
   new_kick = pred_df[kickoff_ind,]
-  new_kick["adj_yd_line"] = 75
+  new_kick["yards_to_goal"] = 75
   new_kick["log_ydstogo"] = log(75)
   ep_kickoffs = as.data.frame(predict(ep_model, new_kick, type = 'prob'))
   pred_df[(pred_df$play_type =='Kickoff'),"ep_before"] = apply(ep_kickoffs,1,function(row){
@@ -402,19 +404,19 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
              TimeSecsRem,
              down,
              distance,
-             adj_yd_line,
+             yards_to_goal,
              yards_gained,
              TimeSecsRem_end,
              down_end,
              distance_end,
-             adj_yd_line_end,
+             yards_to_goal_end,
              turnover_end,
              Under_two_end,
              everything()
            ) %>%
     mutate(
-      rz_play = ifelse((adj_yd_line <= 20), 1, 0),
-      scoring_opp = ifelse((adj_yd_line <= 40), 1, 0),
+      rz_play = ifelse((yards_to_goal <= 20), 1, 0),
+      scoring_opp = ifelse((yards_to_goal <= 40), 1, 0),
       pass = if_else(
         play_type == "Pass Reception" | play_type == "Passing Touchdown" |
           play_type == "Sack" |
