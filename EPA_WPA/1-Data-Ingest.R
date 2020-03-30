@@ -40,8 +40,6 @@ write.csv(dat_merge, "data/clean_drives_data.csv", row.names = FALSE)
 week_vector = 1:15
 year_vector = 2009:2019
 weekly_year_df = expand.grid(year=year_vector,week=week_vector)
-# weekly_year_df <- rbind(weekly_year_df,c(2019,1),c(2019,2),c(2019,3),c(2019,4),c(2019,5),c(2019,6),
-#                         c(2019,7),c(2019,8),c(2019,9),c(2019,10),c(2019,11),c(2019,12))
 ### scrape yearly
 year_split = split(weekly_year_df,weekly_year_df$year)
 
@@ -111,11 +109,11 @@ clean_drive = dat_merge %>% mutate(
 ## with the drive_details
 library(purrr)
 clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
-                               function(x) {
-                                 clean_drive %>%
-                                   filter(game_id == x) %>%
-                                   find_game_next_score_half()
-                               })
+                                  function(x) {
+                                    clean_drive %>%
+                                      filter(game_id == x) %>%
+                                      find_game_next_score_half()
+                                  })
 
 # drive, and the next drives score details
 # join this back to the pbp
@@ -125,15 +123,15 @@ clean_next_select <- clean_next_score_drive %>% select(game_id,drive_id,offense,
       NSH == 7 ~ "TD",
       NSH == 3 ~ "FG",
       NSH == 2 ~ "Safety",
-      NSH == -2 ~ "Opp Safety",
-      NSH == -3  ~ "Opp FG",
-      NSH == -7 ~ "Opp TD",
+      NSH == -2 ~ "Opp_Safety",
+      NSH == -3  ~ "Opp_FG",
+      NSH == -7 ~ "Opp_TD",
       TRUE ~ "No_Score"
     )
   )
 clean_next_select = clean_next_select %>%mutate(drive_id = as.numeric(drive_id))
 pbp_full_df <- clean_all_years %>% left_join(clean_next_select) %>% mutate(
-  log_ydstogo = log(distance),
+  log_ydstogo = log(distance)
 )
 
 # Adjust Field Goal by 17 yards
@@ -141,7 +139,7 @@ fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
 ep_inds = str_detect(pbp_full_df$play_type,"Extra Point")
 kicker_inds = fg_inds | ep_inds
 pbp_full_df[kicker_inds,"yards_to_goal"] = pbp_full_df[kicker_inds,"yards_to_goal"] + 17
-pbp_full_df[kicker_inds,"log_ydstogo"] = log(pbp_full_df[kicker_inds,"yards_to_goal"])
+pbp_full_df[kicker_inds,"log_ydstogo"] = log(pbp_full_df[kicker_inds,"distance"])
 
 ## Remove OT games
 OT_games = pbp_full_df %>% group_by(game_id) %>% 

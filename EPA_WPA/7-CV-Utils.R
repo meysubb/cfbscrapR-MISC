@@ -7,7 +7,6 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
   # Generate the predictions for each holdout season:
   map_dfr(seasons, 
           function(x) {
-            
             # Separate test and training data:
             test_data <- ep_model_data %>%
               filter(year == x)
@@ -72,8 +71,10 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
                                        data = train_data,
                                        weights = model_weights, maxit = 300)
             print("Saving ep_model in RData and rds formats")
-            save(ep_model, file="models/ep_model.RData")
-            saveRDS(ep_model,"models/ep_model.rds")
+            rdat = glue::glue("models/ep_model_season_{x}.RData")
+            rds = glue::glue("models/ep_model_season_{x}.rds")
+            save(ep_model, file=rdat)
+            saveRDS(ep_model,rds)
             
             # Generate and return prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
@@ -84,8 +85,8 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
                      Next_Score = test_data$Next_Score) 
             
             test_preds_ep<-cbind(test_data,preds_ep)
-            file_name <- paste0("data/EPA_Calcs_",x,".csv")
-            write.csv(test_preds_ep,file_name,row.names=FALSE)
+            csvfn = glue::glue("data/EPA_Calcs_season_{x}.csv")
+            write.csv(test_preds_ep,csvfn,row.names=FALSE)
             return(test_preds_ep)
             
           }) %>%
@@ -167,8 +168,10 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
                                        data = train_data,
                                        weights = model_weights, maxit = 300)
             
-            save(ep_model, file="models/ep_model_cv_cal.RData")
-            saveRDS(ep_model,"models/ep_model.rds")
+            rdat = glue::glue("models/ep_cv_loso_model_season_{x}.RData")
+            rds = glue::glue("models/ep_cv_loso_model_season_{x}.rds")
+            save(ep_model, file=rdat)
+            saveRDS(ep_model,rds)
             
             # Generate prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
@@ -180,6 +183,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
               mutate(NSH = test_data$NSH,
                      Next_Score = test_data$Next_Score)
             
+            
             # Build field goal model:
             fg_contains = str_detect((train_data$play_type),"Field Goal")
             fg_train_data <- train_data[fg_contains,]
@@ -187,8 +191,10 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             fg_model <- mgcv::bam(fg_formula, 
                                   data = fg_train_data, family = "binomial")
             
-            save(fg_model, file="models/fg_model_cv_cal.RData")
-            saveRDS(fg_model,"models/fg_model_cv_cal.rds")
+            fg_rdat = glue::glue("models/fg_cv_loso_model_season_{x}.RData")
+            fg_rds = glue::glue("models/fg_cv_loso_model_season_{x}.rds")
+            save(fg_model, file=fg_rdat)
+            saveRDS(fg_model,fg_rds)
             # Now make a copy of the test data to then get EP probabilites 
             # as if the field goals were missed:
             fg_test_contains = str_detect((test_data$play_type),"Field Goal")
@@ -207,9 +213,6 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
                      # Create Under_TwoMinute_Warning indicator
                      Under_two = ifelse(TimeSecsRem < 120,
                                         TRUE, FALSE))
-            
-            
-            
             
             # Get the missed test data predictions:
             missed_fg_ep_preds <- data.frame(predict(ep_model, 
@@ -237,31 +240,31 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             # Now update the probabilities for the FG attempts 
             # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
             preds_ep[fg_attempt_i, "FG"] <- make_fg_prob[fg_attempt_i] + 
-              missed_fg_ep_preds[fg_attempt_i,"Opp.FG"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp_FG"]
             
             # Update the other columns based on the opposite possession:
             preds_ep[fg_attempt_i, "TD"] <- 
-              missed_fg_ep_preds[fg_attempt_i,"Opp.TD"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp_TD"]
             
-            preds_ep[fg_attempt_i, "Opp.FG"] <- 
+            preds_ep[fg_attempt_i, "Opp_FG"] <- 
               missed_fg_ep_preds[fg_attempt_i,"FG"]
             
-            preds_ep[fg_attempt_i, "Opp.TD"] <-
+            preds_ep[fg_attempt_i, "Opp_TD"] <-
               missed_fg_ep_preds[fg_attempt_i,"TD"]
             
             preds_ep[fg_attempt_i, "Safety"] <-
-              missed_fg_ep_preds[fg_attempt_i,"Opp.Safety"]
-            preds_ep[fg_attempt_i, "Opp.Safety"] <-
+              missed_fg_ep_preds[fg_attempt_i,"Opp_Safety"]
+            preds_ep[fg_attempt_i, "Opp_Safety"] <-
               missed_fg_ep_preds[fg_attempt_i,"Safety"]
             
             preds_ep[fg_attempt_i, "No_Score"] <- 
               missed_fg_ep_preds[fg_attempt_i,"No_Score"]
             
+            
             test_preds_ep<-cbind(test_data,preds_ep)
-            file_name <- paste0("data/EPA_FG_Calcs_",x,".csv")
-            write.csv(test_preds_ep,file_name,row.names=FALSE)
             
-            
+            csvfn = glue::glue("data/EPA_FG_Calcs_season_{x}.csv")
+            write.csv(test_preds_ep,csvfn,row.names=FALSE)
             return(test_preds_ep)
             
           }) %>%
@@ -471,5 +474,36 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
       epa_success = ifelse(EPA > 0, 1, 0)
     )
   return(pred_df)
+}
+calc_wp_gam_loso_cv <- function(wp_formula, wp_model_data) {
+  
+  # Create vector of seasons to generate hold out results for:
+  seasons <- unique(wp_model_data$year)
+  
+  # Generate the predictions for each holdout season:
+  map_dfr(seasons, 
+          function(x) {
+            
+            # Separate test and training data:
+            test_data <- wp_model_data %>%
+              filter(year == x)
+            train_data <- wp_model_data %>%
+              filter(year != x)
+            
+            # Build model:
+            wp_model <- bam(wp_formula, data = train_data, family = "binomial")
+            
+            # Generate and return prediction dataset (can add columns to
+            # return from the test_data in the mutate function below but
+            # only necessary variables are the predicted probabilities 
+            # and the actual events):
+            data.frame(win_prob = predict(wp_model, newdata = test_data, 
+                                          type = "response")) %>%
+              mutate(win_ind = test_data$Win_Indicator,
+                     qtr = test_data$qtr) %>%
+              return
+            
+          }) %>%
+    return
 }
 
