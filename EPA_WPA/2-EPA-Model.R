@@ -172,7 +172,7 @@ cv_cal_error <- ep_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(cv_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
-# 0.01309723
+# 0.01109719
 
 # Create the LOSO predictions for the selected cfbscrapR models:
 ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~ 
@@ -258,7 +258,7 @@ cv_fg_cal_error <- ep_fg_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(cv_fg_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
-# 0.01424929
+# 0.01328626
 
 # # # need
 # ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
