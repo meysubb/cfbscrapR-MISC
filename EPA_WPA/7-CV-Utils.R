@@ -182,6 +182,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
                                            type = "probs")) %>%
               mutate(NSH = test_data$NSH,
                      Next_Score = test_data$Next_Score)
+
             
             
             # Build field goal model:
@@ -259,6 +260,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             
             preds_ep[fg_attempt_i, "No_Score"] <- 
               missed_fg_ep_preds[fg_attempt_i,"No_Score"]
+
             
             
             test_preds_ep<-cbind(test_data,preds_ep)
