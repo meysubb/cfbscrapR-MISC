@@ -223,12 +223,12 @@ ep_fg_cv_loso_calibration_results %>%
                                        "FG","Safety","TD",
                                        "No_Score"),
          next_score_type = fct_recode(next_score_type,
-                                      "-Field Goal" = "Opp_FG",
-                                      "-Safety" = "Opp_Safety",
-                                      "-Touchdown" = "Opp_TD",
-                                      "Field Goal" = "FG",
-                                      "Touchdown" = 'TD',
-                                      "No Score" = "No_Score")) %>%
+                                      "-Field Goal (-3)" = "Opp_FG",
+                                      "-Safety (-2)" = "Opp_Safety",
+                                      "-Touchdown (-7)" = "Opp_TD",
+                                      "Field Goal (3)" = "FG",
+                                      "Touchdown (7)" = 'TD',
+                                      "No Score (0)" = "No_Score")) %>%
   ggplot() +
   geom_point(aes(x = bin_pred_prob, y = bin_actual_prob, size = n_plays)) +
   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
