@@ -134,6 +134,8 @@ pbp_full_df <- clean_all_years %>% left_join(clean_next_select) %>% mutate(
   log_ydstogo = log(distance),
 )
 
+## TO-DO Need to identify other Extra Point lines
+
 # Adjust Field Goal by 17 yards
 fg_inds = str_detect(pbp_full_df$play_type,"Field Goal")
 ep_inds = str_detect(pbp_full_df$play_type,"Extra Point")

@@ -124,9 +124,7 @@ pbp_fg_df <- pbp_full_df %>%
     id_play = as.numeric(id_play)
   ) %>% filter(!is.na(game_id))
 
-# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-# fg_no_OT <- pbp_no_OT[fg_contains,]
-# 
-# fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
-#                       data = fg_no_OT, family = "binomial")
-# saveRDS(fg_model,"models/fg_model.rds")
+fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
+                      data = pbp_fg_df, family = "binomial")
+saveRDS(fg_model,"models/final_fg_model.rds")
+save(fg_model,file="models/final_fg_model.RData")
