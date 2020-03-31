@@ -68,20 +68,46 @@ pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
 # flip the normilization so that larger scores don't matter as much as closer scores
 wts = pbp_no_OT %>%
   mutate(
-    weights_raw = abs(offense_score - defense_score),
-    weights = (max(weights_raw) - weights_raw)/(max(weights_raw)-min(weights_raw))
-  ) %>% pull(weights)
+    # 1 - drive difference
+    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+    
+    # 2 - score differential
+    ScoreDiff_W = (max(abs_diff) - abs_diff) / 
+      (max(abs_diff) - min(abs_diff)),
+    
+    # 3 - combo of 1 and 2
+    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+    Total_W_Scaled = (Total_W - min(Total_W)) / 
+      (max(Total_W) - min(Total_W))
+  ) %>% pull(Total_W_Scaled)
 
-# ep_model <-
-#   nnet::multinom(
-#     Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
-#       log_ydstogo * down +
-#       yards_to_goal * down + 
-#       Goal_To_Go * log_ydstogo,
-#     data = pbp_no_OT,
-#     maxit = 300,
-#     weights = wts
-#   )
+ep_model <-
+  nnet::multinom(
+    Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
+      log_ydstogo * down +
+      yards_to_goal * down +
+      Goal_To_Go * log_ydstogo,
+    data = pbp_no_OT,
+    maxit = 300,
+    weights = wts
+  )
+
+saveRDS(ep_model,"models/ep_model.RDS")
+save(ep_model,file = "models/ep_model.RData")
+preds_ep <- data.frame(predict(ep_model, 
+                    newdata = pbp_no_OT, 
+                    type = "probs"))
+weights = c(0, 3, -3, -2, -7, 2, 7)
+
+preds_ep$ep_before = apply(preds_ep, 1, function(row) {
+  sum(row * weights)
+})
+pbp_no_OT_epa <- data.frame(cbind(pbp_no_OT,preds_ep)) %>%
+  mutate(NSH = pbp_no_OT$NSH,
+         Next_Score = pbp_no_OT$Next_Score)
+
+write.csv(pbp_no_OT_epa,"pbp_no_OT_epa.csv",row.names=FALSE)
 
 # Create the LOSO predictions for the selected cfbscrapR model:
 ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
@@ -212,7 +238,7 @@ ep_fg_cv_loso_calibration_results <- ep_fg_model_preds %>%
 # Create a label data frame for the chart:
 ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25), 
                        lab = c("More times\nthan expected", "Fewer times\nthan expected"),
-                       next_score_type = factor("No Score"))
+                       next_score_type = factor("No Score (0)"))
 
 # Create the calibration chart:
 ep_fg_cv_loso_calibration_results %>%
