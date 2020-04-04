@@ -153,13 +153,13 @@ if(any(end_of_half_plays)){
   dat$new_down[end_of_half_plays] <- 4
   dat$new_distance[end_of_half_plays] <- 99
   dat$end_half_game[end_of_half_plays] <- 1
-  dat$new_log_ydstogo[end_of_half_plays] <- log(99)
+  dat$new_log_ydstogo[end_of_half_plays] <- log(10)
   dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
 }
 
 missing_yd_line = dat$new_yardline == 0
 dat$new_yardline[missing_yd_line] = 99
-dat$new_log_ydstogo[missing_yd_line] = log(99)
+dat$new_log_ydstogo[missing_yd_line] = log(10)
 
 dat = dat %>% select(
   id_play,
