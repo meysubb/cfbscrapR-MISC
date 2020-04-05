@@ -238,21 +238,21 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
             # Now update the probabilities for the FG attempts 
             # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
             preds_ep[fg_attempt_i, "FG"] <- make_fg_prob[fg_attempt_i] + 
-              missed_fg_ep_preds[fg_attempt_i,"Opp.FG"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp_FG"]
             
             # Update the other columns based on the opposite possession:
             preds_ep[fg_attempt_i, "TD"] <- 
-              missed_fg_ep_preds[fg_attempt_i,"Opp.TD"]
+              missed_fg_ep_preds[fg_attempt_i,"Opp_TD"]
             
-            preds_ep[fg_attempt_i, "Opp.FG"] <- 
+            preds_ep[fg_attempt_i, "Opp_FG"] <- 
               missed_fg_ep_preds[fg_attempt_i,"FG"]
             
-            preds_ep[fg_attempt_i, "Opp.TD"] <-
+            preds_ep[fg_attempt_i, "Opp_TD"] <-
               missed_fg_ep_preds[fg_attempt_i,"TD"]
             
             preds_ep[fg_attempt_i, "Safety"] <-
-              missed_fg_ep_preds[fg_attempt_i,"Opp.Safety"]
-            preds_ep[fg_attempt_i, "Opp.Safety"] <-
+              missed_fg_ep_preds[fg_attempt_i,"Opp_Safety"]
+            preds_ep[fg_attempt_i, "Opp_Safety"] <-
               missed_fg_ep_preds[fg_attempt_i,"Safety"]
             
             preds_ep[fg_attempt_i, "No_Score"] <- 
@@ -260,7 +260,7 @@ calc_ep_multinom_fg_loso_cv <- function(ep_formula, fg_formula, weight_type = 3,
 
             
             test_preds_ep<-cbind(test_data,preds_ep)
-            file_name <- paste0("data/EPA_FG_Calcs_",x,".csv")
+            file_name = glue::glue("data/EPA_FG_Calcs_season_{x}.csv")
             write.csv(test_preds_ep,file_name,row.names=FALSE)
             
             return(test_preds_ep)
