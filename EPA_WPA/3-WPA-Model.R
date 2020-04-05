@@ -2,12 +2,12 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
-source("6-Utils.R")
+source("7-CV-Utils.R")
 
-epa_15 <- readRDS("data/rds/EPA_calcs_2015.RDS")
-epa_16 <- readRDS("data/rds/EPA_calcs_2016.RDS")
-epa_17 <- readRDS("data/rds/EPA_calcs_2017.RDS")
-epa_18 <- readRDS("data/rds/EPA_calcs_2018.RDS")
+epa_15 <- readRDS("data/rds/EPA_FG_Calcs_2015.RDS")
+epa_16 <- readRDS("data/rds/EPA_FG_Calcs_2016.RDS")
+epa_17 <- readRDS("data/rds/EPA_FG_Calcs_2017.RDS")
+epa_18 <- readRDS("data/rds/EPA_FG_Calcs_2018.RDS")
 
 epa <- bind_rows(epa_16,epa_17,epa_18)
 
