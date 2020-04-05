@@ -86,6 +86,11 @@ prep_df_epa2 <- function(dat){
   dat = dat %>% group_by(game_id, half) %>%
     dplyr::arrange(new_id, .by_group = TRUE) %>%
     mutate(
+<<<<<<< HEAD:EPA_WPA/8-Pred-Utils.R
+      new_down = lead(down),
+      new_distance = lead(distance),
+      new_yardline = lead(yards_to_goal),
+=======
       turnover_indicator = ifelse(
         play_type %in% defense_score | play_type %in% turnover |
           play_type %in% normalplay &
@@ -139,11 +144,46 @@ prep_df_epa2 <- function(dat){
         play_type %in% turnover ~ 100 - yards_to_goal + yards_gained
       ),
       
+>>>>>>> EPA_model_work:EPA_WPA/08-Pred-Utils.R
       new_TimeSecsRem = lead(TimeSecsRem),
       new_log_ydstogo = log(new_yardline),
       new_Goal_To_Go = ifelse(new_yardline <= distance, 1, 0),
       # new under two minute warnings
       new_Under_two = new_TimeSecsRem <= 120,
+<<<<<<< HEAD:EPA_WPA/8-Pred-Utils.R
+      end_half_game=0) %>% ungroup() %>%
+    mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0))
+  
+  end_of_half_plays = is.na(dat$new_yardline) & (dat$new_TimeSecsRem==0)
+  if(any(end_of_half_plays)){
+    dat$new_yardline[end_of_half_plays] <- 99
+    dat$new_down[end_of_half_plays] <- 4
+    dat$new_distance[end_of_half_plays] <- 99
+    dat$end_half_game[end_of_half_plays] <- 1
+    dat$new_log_ydstogo[end_of_half_plays] <- log(10)
+    dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
+  }
+  
+  missing_yd_line = dat$new_yardline == 0
+  dat$new_yardline[missing_yd_line] = 99
+  dat$new_log_ydstogo[missing_yd_line] = log(10)
+  
+  dat = dat %>% select(
+    new_TimeSecsRem,
+    new_down,
+    new_distance,
+    new_yardline,
+    new_log_ydstogo,
+    new_Goal_To_Go,
+    new_Under_two,
+    end_half_game,
+    turnover
+  )
+  colnames(dat) = gsub("new_","",colnames(dat))
+  colnames(dat)[4] <- "yards_to_goal"
+  
+  return(dat)
+=======
       end_half_game = 0) %>%
   mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% ungroup()
 
@@ -155,6 +195,7 @@ if(any(end_of_half_plays)){
   dat$end_half_game[end_of_half_plays] <- 1
   dat$new_log_ydstogo[end_of_half_plays] <- log(10)
   dat$new_Under_two[end_of_half_plays] <- dat$new_TimeSecsRem[end_of_half_plays] <= 120
+>>>>>>> EPA_model_work:EPA_WPA/08-Pred-Utils.R
 }
 
 missing_yd_line = dat$new_yardline == 0
@@ -210,8 +251,8 @@ prep_df_epa <- function(dat) {
       clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
       raw_secs = clock.minutes * 60 + clock.seconds,
       # coef = home_team == defense,
-      # adj_yd_line = 100 * (1 - coef) + (2 * coef - 1) * yard_line,
-      # log_ydstogo = log(adj_yd_line),
+      # yards_to_goal = 100 * (1 - coef) + (2 * coef - 1) * yard_line,
+      # log_ydstogo = log(distance),
       half = ifelse(period <= 2, 1, 2),
       new_yardline = 0,
       new_Goal_To_Go = FALSE,
@@ -434,12 +475,16 @@ prep_df_epa <- function(dat) {
         new_distance <= new_yardline
       ),
       new_TimeSecsRem = lead(TimeSecsRem),
-      new_log_ydstogo = log(new_yardline))
+      new_log_ydstogo = log(new_distance))
   
   ## fix NA's log_yds
   blk_fg_na = dat$play_type == "Blocked Field Goal" & is.na(dat$new_log_ydstogo)
   dat$new_yardline[blk_fg_na] = 100 - dat$yards_to_goal[blk_fg_na]
+<<<<<<< HEAD:EPA_WPA/8-Pred-Utils.R
+  dat$new_log_ydstogo[blk_fg_na] = log(dat$new_distance[blk_fg_na])
+=======
   dat$new_log_ydstogo[blk_fg_na] = log(dat$new_yardline[blk_fg_na])
+>>>>>>> EPA_model_work:EPA_WPA/08-Pred-Utils.R
   
   
   dat = dat %>% select(new_TimeSecsRem,new_down,new_distance,new_yardline,new_log_ydstogo,turnover) %>%
@@ -450,7 +495,11 @@ prep_df_epa <- function(dat) {
   ## seems to fail here, figure out why.
   ## doesn't like
   adj_to = (dat$yards_to_goal == 0) & (turnover_ind)
+<<<<<<< HEAD:EPA_WPA/8-Pred-Utils.R
+  dat$log_ydstogo[adj_to] = log(10)
+=======
   dat$log_ydstogo[adj_to] = log(80)
+>>>>>>> EPA_model_work:EPA_WPA/08-Pred-Utils.R
   dat$yards_to_goal[adj_to] = 80
   
   dat$Under_two = dat$TimeSecsRem <= 120
