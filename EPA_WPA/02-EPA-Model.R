@@ -32,10 +32,8 @@ remove_plays <-
   )
 
 ## need to remove games with 
-
-
 pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
-  filter(year>=2015) %>%   
+  filter(year>=2014) %>%   
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(!is.na(game_id)) %>%
@@ -53,60 +51,6 @@ pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
     Under_two = TimeSecsRem <= 120,
     id_play = as.numeric(id_play)
   ) %>% filter(!is.na(game_id))
-
-# fg_contains = str_detect((pbp_no_OT$play_type),"Field Goal")
-# fg_no_OT <- pbp_no_OT[fg_contains,]
-# 
-# fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
-#                       data = fg_no_OT, family = "binomial")
-# saveRDS(fg_model,"models/fg_model.rds")
-# # Load FG Model
-# #fg_model = readRDS("models/fg_model.rds")
-# summary(fg_model)
-# weight factor, normalized absolute score differential.
-# flip the normilization so that larger scores don't matter as much as closer scores
-wts = pbp_no_OT %>%
-  mutate(
-    # 1 - drive difference
-    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
-      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
-    
-    # 2 - score differential
-    ScoreDiff_W = (max(abs_diff) - abs_diff) / 
-      (max(abs_diff) - min(abs_diff)),
-    
-    # 3 - combo of 1 and 2
-    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
-    Total_W_Scaled = (Total_W - min(Total_W)) / 
-      (max(Total_W) - min(Total_W))
-  ) %>% pull(Total_W_Scaled)
-
-ep_model <-
-  nnet::multinom(
-    Next_Score ~ TimeSecsRem + yards_to_goal + down  + log_ydstogo + Goal_To_Go + Under_two +
-      log_ydstogo * down +
-      yards_to_goal * down +
-      Goal_To_Go * log_ydstogo,
-    data = pbp_no_OT,
-    maxit = 300,
-    weights = wts
-  )
-
-saveRDS(ep_model,"models/ep_model.RDS")
-save(ep_model,file = "models/ep_model.RData")
-preds_ep <- data.frame(predict(ep_model, 
-                    newdata = pbp_no_OT, 
-                    type = "probs"))
-weights = c(0, 3, -3, -2, -7, 2, 7)
-
-preds_ep$ep_before = apply(preds_ep, 1, function(row) {
-  sum(row * weights)
-})
-pbp_no_OT_epa <- data.frame(cbind(pbp_no_OT,preds_ep)) %>%
-  mutate(NSH = pbp_no_OT$NSH,
-         Next_Score = pbp_no_OT$Next_Score)
-
-write.csv(pbp_no_OT_epa,"pbp_no_OT_epa.csv",row.names=FALSE)
 
 # Create the LOSO predictions for the selected cfbscrapR model:
 ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
@@ -210,9 +154,7 @@ ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~
                                                                  Under_two"),
                                                       as.formula("scoring ~ s(yards_to_goal)"),
                                                       ep_model_data = pbp_no_OT)
-
 write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
-
 
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
@@ -314,19 +256,54 @@ for (i in 1:len) {
 }
 
 ep_model
+### Create Final Models 
+final_pbp = pbp_no_OT %>% mutate(
+  # 1 - drive difference
+  Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
+    (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+  # 2 - score differential
+  ScoreDiff_W = (max(abs_diff) - abs_diff) /
+    (max(abs_diff) - min(abs_diff)),
+  # 3 - combo of 1 and 2
+  Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+  Total_W_Scaled = (Total_W - min(Total_W)) /
+    (max(Total_W) - min(Total_W)),
+)
 
-lapply(names(all_years_epa), function(x) {
-  write.csv(
-    all_years_epa[[x]],
-    file = paste0("data/csv/EPA_calcs_", x, ".csv"),
-    row.names = F
+final_ep_model <-
+  nnet::multinom(
+    Next_Score ~ 
+      TimeSecsRem + yards_to_goal + down + log_ydstogo + Goal_To_Go + Under_two +  
+      log_ydstogo*down + yards_to_goal*down + Goal_To_Go*log_ydstogo, 
+    data = final_pbp,
+    maxit = 300,
+    weights = Total_W_Scaled
   )
-})
 
-lapply(names(all_years_epa), function(x) {
-  saveRDS(
-    all_years_epa[[x]],
-    file = paste0("data/rds/EPA_calcs_", x, ".RDS"),
-    compress = T
-  )
-})
+save(final_ep_model, file="models/final_ep_model.RData")
+saveRDS(final_ep_model,file="models/final_ep_model.RDS")
+
+
+pbp_fg_df <- pbp_full_df %>% 
+  filter(year>=2014) %>%   
+  filter(grepl("Field Goal",play_type) | grepl("Extra Point",play_type)) %>%
+  filter(!is.na(down),!is.na(raw_secs)) %>%
+  filter(!is.na(game_id)) %>%
+  filter(log_ydstogo != -Inf) %>%
+  rename(TimeSecsRem = raw_secs) %>%
+  mutate(
+    Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
+    down = as.factor(down),
+    Goal_To_Go = ifelse(
+      str_detect(play_type, "Field Goal"),
+      distance >= (yards_to_goal - 17),
+      distance >= yards_to_goal
+    ),
+    Under_two = TimeSecsRem <= 120,
+    id_play = as.numeric(id_play)
+  ) %>% filter(!is.na(game_id))
+
+fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
+                      data = pbp_fg_df, family = "binomial")
+saveRDS(fg_model,"models/final_fg_model.rds")
+save(fg_model,file="models/final_fg_model.RData")
