@@ -27,13 +27,13 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
   
   # now to flip all the probs,
   current_probs2[fg_ind, "FG"] <-
-    make_fg_prob + current_probs[fg_ind, "Opp FG"]
-  current_probs2[fg_ind, "Opp FG"] <- current_probs[fg_ind, "FG"]
-  current_probs2[fg_ind, "TD"] <- current_probs[fg_ind, "Opp TD"]
-  current_probs2[fg_ind, "Opp TD"] <- current_probs[fg_ind, "TD"]
+    make_fg_prob + current_probs[fg_ind, "Opp_FG"]
+  current_probs2[fg_ind, "Opp_FG"] <- current_probs[fg_ind, "FG"]
+  current_probs2[fg_ind, "TD"] <- current_probs[fg_ind, "Opp_TD"]
+  current_probs2[fg_ind, "Opp_TD"] <- current_probs[fg_ind, "TD"]
   current_probs2[fg_ind, "Safety"] <-
-    current_probs[fg_ind, "Opp Safety"]
-  current_probs2[fg_ind, "Opp Safety"] <-
+    current_probs[fg_ind, "Opp_Safety"]
+  current_probs2[fg_ind, "Opp_Safety"] <-
     current_probs[fg_ind, "Safety"]
   return(current_probs2)
 }
