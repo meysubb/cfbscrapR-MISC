@@ -6,8 +6,8 @@ library(tidyverse)
 library(nnet)
 library(mgcv)
 
-source("6-Data-Ingest-Utils.R")
-source("7-CV-Utils.R")
+source("06-Data-Ingest-Utils.R")
+source("07-CV-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds")
 
@@ -91,45 +91,45 @@ ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25),
                        lab = c("More times\nthan expected", "Fewer times\nthan expected"),
                        next_score_type = factor("No Score (0)"))
 
-# Create the calibration chart:
-ep_cv_loso_calibration_results %>%
-  ungroup() %>%
-  mutate(next_score_type = fct_relevel(next_score_type,
-                                       "Opp_Safety", "Opp_FG", 
-                                       "Opp_TD", "No_Score", "Safety",
-                                       "FG", "TD"
-  ),
-  next_score_type = fct_recode(next_score_type,
-                               "-Field Goal (-3)" = "Opp_FG",
-                               "-Safety (-2)" = "Opp_Safety",
-                               "-Touchdown (-7)" = "Opp_TD",
-                               "Field Goal (3)" = "FG",
-                               "No Score (0)" = "No_Score",
-                               "Touchdown (7)" = "TD",
-                               "Safety (2)" = "Safety")) %>%
-  ggplot() +
-  geom_point(aes(x = bin_pred_prob, y = bin_actual_prob, size = n_plays)) +
-  geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
-  geom_abline(slope = 1, intercept = 0, color = "black", lty = 2) +
-  coord_equal() +   geom_text(data = ann_text,aes(x = x, y = y, label = lab)) +
-  scale_x_continuous(limits = c(0,1)) + 
-  scale_y_continuous(limits = c(0,1)) + 
-  labs(size = "Number of plays",
-       x = "Estimated next score probability",
-       y = "Observed next score probability") + 
-  geom_text(data = ann_text, aes(x = x, y = y, label = lab)) +
-  theme_bw() + 
-  theme(plot.title = element_text(hjust = 0.5),
-        strip.background = element_blank(),
-        strip.text = element_text(size = 18),
-        axis.title = element_text(size = 18),
-        axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 10, angle = 90),
-        legend.title = element_text(size = 18),
-        legend.text = element_text(size = 16),
-        legend.position = c(1, .05), legend.justification = c(1, 0)) +
-  facet_wrap(~ next_score_type, ncol = 4)+
-  ggsave("ep_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
+# # Create the calibration chart:
+# ep_cv_loso_calibration_results %>%
+#   ungroup() %>%
+#   mutate(next_score_type = fct_relevel(next_score_type,
+#                                        "Opp_Safety", "Opp_FG", 
+#                                        "Opp_TD", "No_Score", "Safety",
+#                                        "FG", "TD"
+#   ),
+#   next_score_type = fct_recode(next_score_type,
+#                                "-Field Goal (-3)" = "Opp_FG",
+#                                "-Safety (-2)" = "Opp_Safety",
+#                                "-Touchdown (-7)" = "Opp_TD",
+#                                "Field Goal (3)" = "FG",
+#                                "No Score (0)" = "No_Score",
+#                                "Touchdown (7)" = "TD",
+#                                "Safety (2)" = "Safety")) %>%
+#   ggplot() +
+#   geom_point(aes(x = bin_pred_prob, y = bin_actual_prob, size = n_plays)) +
+#   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
+#   geom_abline(slope = 1, intercept = 0, color = "black", lty = 2) +
+#   coord_equal() +   geom_text(data = ann_text,aes(x = x, y = y, label = lab)) +
+#   scale_x_continuous(limits = c(0,1)) + 
+#   scale_y_continuous(limits = c(0,1)) + 
+#   labs(size = "Number of plays",
+#        x = "Estimated next score probability",
+#        y = "Observed next score probability") + 
+#   geom_text(data = ann_text, aes(x = x, y = y, label = lab)) +
+#   theme_bw() + 
+#   theme(plot.title = element_text(hjust = 0.5),
+#         strip.background = element_blank(),
+#         strip.text = element_text(size = 18),
+#         axis.title = element_text(size = 18),
+#         axis.text.y = element_text(size = 12),
+#         axis.text.x = element_text(size = 10, angle = 90),
+#         legend.title = element_text(size = 18),
+#         legend.text = element_text(size = 16),
+#         legend.position = c(1, .05), legend.justification = c(1, 0)) +
+#   facet_wrap(~ next_score_type, ncol = 4)+
+#   ggsave("ep_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
 
 # Calculate the calibration error values:  
 cv_cal_error <- ep_cv_loso_calibration_results %>% 
@@ -228,10 +228,37 @@ with(cv_fg_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
 # 0.01328626
 
 # # # need
-# ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
-#                                down + log_ydstogo + log_ydstogo*down +
-#                               yards_to_goal*down + Goal_To_Go, data = pbp_no_OT, maxit = 300,
-#                            weights = wts)
+pbp_w_wts = pbp_no_OT %>%
+  mutate(
+    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
+      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+    
+    # 2 - score differential
+    ScoreDiff_W = (max(abs_diff) - abs_diff) /
+      (max(abs_diff) - min(abs_diff)),
+    
+    # 3 - combo of 1 and 2
+    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+    Total_W_Scaled = (Total_W - min(Total_W)) /
+      (max(Total_W) - min(Total_W)),
+    
+    # 4 - difference from holdout season
+    Season_Diff = abs(year - x),
+    Season_Diff_W = (max(Season_Diff) - Season_Diff) /
+      (max(Season_Diff) - min(Season_Diff)),
+    
+    # 5 - combo of 1, 2, and 4
+    Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W +
+      Season_Diff_W,
+    Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) /
+      (max(Total_Season_W) - min(Total_Season_W))
+  )
+
+
+ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
+                               down + log_ydstogo + log_ydstogo*down +
+                              yards_to_goal*down + Goal_To_Go, data = pbp_w_wts, maxit = 300,
+                           weights = Total_W_Scaled)
 
 ep_model
 saveRDS(ep_model,"models/ep_model.rds")
