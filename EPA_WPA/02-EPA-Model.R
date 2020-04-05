@@ -154,7 +154,7 @@ ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~
                                                                  Under_two"),
                                                       as.formula("scoring ~ s(yards_to_goal)"),
                                                       ep_model_data = pbp_no_OT)
-write.csv(ep_fg_model_loso_preds,"ep_fg_model_data_loso.csv",row.names=FALSE)
+write.csv(ep_fg_model_loso_preds,"data/ep_fg_model_data_loso.csv",row.names=FALSE)
 
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
