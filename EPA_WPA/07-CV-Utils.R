@@ -216,7 +216,7 @@ calc_ep_multinom_fg_loso_cv <-
                 mutate(
                   TimeSecsRem = TimeSecsRem - 5.065401,
                   # Correct the yrdline100:
-                  yards_to_goal = 100 - (yards_to_goal + 8),
+                  yards_to_goal = 100 - (yards_to_goal - 9),
                   # Not GoalToGo:
                   Goal_To_Go = rep(FALSE, n()),
                   # Now first down:
@@ -242,7 +242,7 @@ calc_ep_multinom_fg_loso_cv <-
               
               # Get the probability of making the field goal:
               make_fg_prob <- as.numeric(mgcv::predict.bam(fg_model,
-                                                           newdata = test_data,
+                                                           newdata = fg_test_data,
                                                            type = "response"))
               
               # Multiply each value of the missed_fg_ep_preds by the 1 - make_fg_prob
@@ -256,27 +256,17 @@ calc_ep_multinom_fg_loso_cv <-
               
               # Now update the probabilities for the FG attempts
               # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
-              preds_ep[fg_attempt_i, "FG"] <-
-                make_fg_prob[fg_attempt_i] +
-                missed_fg_ep_preds[fg_attempt_i, "Opp_FG"]
-              
-              # Update the other columns based on the opposite possession:
-              preds_ep[fg_attempt_i, "TD"] <-
-                missed_fg_ep_preds[fg_attempt_i, "Opp_TD"]
-              
-              preds_ep[fg_attempt_i, "Opp_FG"] <-
-                missed_fg_ep_preds[fg_attempt_i, "FG"]
-              
-              preds_ep[fg_attempt_i, "Opp_TD"] <-
-                missed_fg_ep_preds[fg_attempt_i, "TD"]
-              
-              preds_ep[fg_attempt_i, "Safety"] <-
-                missed_fg_ep_preds[fg_attempt_i, "Opp_Safety"]
-              preds_ep[fg_attempt_i, "Opp_Safety"] <-
-                missed_fg_ep_preds[fg_attempt_i, "Safety"]
-              
-              preds_ep[fg_attempt_i, "No_Score"] <-
-                missed_fg_ep_preds[fg_attempt_i, "No_Score"]
+              for(i in 1:length(make_fg_prob)){
+                preds_ep[fg_attempt_i[[i]], "FG"] <- make_fg_prob[[i]] + 
+                                                    missed_fg_ep_preds[i,"Opp_FG"]
+                # Update the other columns based on the opposite possession:
+                preds_ep[fg_attempt_i[[i]], "TD"] <- missed_fg_ep_preds[i, "Opp_TD"]
+                preds_ep[fg_attempt_i[[i]], "Opp_FG"] <- missed_fg_ep_preds[i, "FG"]
+                preds_ep[fg_attempt_i[[i]], "Opp_TD"] <- missed_fg_ep_preds[i, "TD"]
+                preds_ep[fg_attempt_i[[i]], "Safety"] <- missed_fg_ep_preds[i, "Opp_Safety"]
+                preds_ep[fg_attempt_i[[i]], "Opp_Safety"] <- missed_fg_ep_preds[i, "Safety"]
+                preds_ep[fg_attempt_i[[i]], "No_Score"] <- missed_fg_ep_preds[i, "No_Score"]
+              }
               
               test_preds_ep <- cbind(test_data, preds_ep)
               
