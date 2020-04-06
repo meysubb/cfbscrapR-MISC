@@ -96,9 +96,6 @@ clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inne
 ## Figure out the next score now
 clean_drive = dat_merge %>% mutate(
   pts_drive = case_when(
-    str_detect(drive_result, "TD") ~ 7,
-    #str_detect(drive_result,"FG") ~ 3,
-    str_detect(drive_result, "SF") ~ -2,
     drive_result == 'FG GOOD' ~ 3,
     drive_result == 'FG' ~ 3,
     drive_result == 'MISSED FG TD' ~ -7,
@@ -112,6 +109,9 @@ clean_drive = dat_merge %>% mutate(
     drive_result == 'FUMBLE RETURN TD' ~ -7,
     drive_result == 'FUMBLE TD' ~ -7,
     drive_result == 'DOWNS TD' ~ -7,
+    str_detect(drive_result, "SF") ~ -2,
+    str_detect(drive_result, "TD") ~ 7,
+    #str_detect(drive_result,"FG") ~ 3,
     TRUE ~ 0
   ),
   scoring = ifelse(pts_drive != 0, TRUE, scoring)
