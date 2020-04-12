@@ -209,8 +209,8 @@ calc_ep_multinom_fg_loso_cv <-
               saveRDS(fg_model, fg_rds)
               # Now make a copy of the test data to then get EP probabilites
               # as if the field goals were missed:
-              fg_test_contains = str_detect((test_data$play_type), "Field Goal")
-              fg_test_data <- test_data[fg_test_contains, ]
+              fg_test_attempt_i = str_detect((test_data$play_type), "Field Goal")
+              fg_test_data <- test_data[fg_test_attempt_i, ]
               missed_fg_test_data <- fg_test_data %>%
                 # Subtract 5.065401 from TimeSecs since average time for FG att:
                 mutate(
@@ -249,23 +249,18 @@ calc_ep_multinom_fg_loso_cv <-
               missed_fg_ep_preds <-
                 missed_fg_ep_preds * (1 - make_fg_prob)
               
-              # Find the FG attempts in the test data:
-              fg_attempt_i <-
-                which(str_detect((test_data$play_type), "Field Goal"))
-              fg_test_data <- test_data[fg_attempt_i, ]
-              
               # Now update the probabilities for the FG attempts
               # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
               for(i in 1:length(make_fg_prob)){
-                preds_ep[fg_attempt_i[[i]], "FG"] <- make_fg_prob[[i]] + 
+                preds_ep[fg_test_attempt_i[[i]], "FG"] <- make_fg_prob[[i]] + 
                                                     missed_fg_ep_preds[i,"Opp_FG"]
                 # Update the other columns based on the opposite possession:
-                preds_ep[fg_attempt_i[[i]], "TD"] <- missed_fg_ep_preds[i, "Opp_TD"]
-                preds_ep[fg_attempt_i[[i]], "Opp_FG"] <- missed_fg_ep_preds[i, "FG"]
-                preds_ep[fg_attempt_i[[i]], "Opp_TD"] <- missed_fg_ep_preds[i, "TD"]
-                preds_ep[fg_attempt_i[[i]], "Safety"] <- missed_fg_ep_preds[i, "Opp_Safety"]
-                preds_ep[fg_attempt_i[[i]], "Opp_Safety"] <- missed_fg_ep_preds[i, "Safety"]
-                preds_ep[fg_attempt_i[[i]], "No_Score"] <- missed_fg_ep_preds[i, "No_Score"]
+                preds_ep[fg_test_attempt_i[[i]], "TD"] <- missed_fg_ep_preds[i, "Opp_TD"]
+                preds_ep[fg_test_attempt_i[[i]], "Opp_FG"] <- missed_fg_ep_preds[i, "FG"]
+                preds_ep[fg_test_attempt_i[[i]], "Opp_TD"] <- missed_fg_ep_preds[i, "TD"]
+                preds_ep[fg_test_attempt_i[[i]], "Safety"] <- missed_fg_ep_preds[i, "Opp_Safety"]
+                preds_ep[fg_test_attempt_i[[i]], "Opp_Safety"] <- missed_fg_ep_preds[i, "Safety"]
+                preds_ep[fg_test_attempt_i[[i]], "No_Score"] <- missed_fg_ep_preds[i, "No_Score"]
               }
               
               test_preds_ep <- cbind(test_data, preds_ep)
