@@ -1,5 +1,9 @@
 # cfbscrapR-MISC
 Miscellaneous files for cfbscrapR (also includes work for EPA/WPA models)
+## Contributors 
+- Meyappan Subbaiah
+- Saiem Gilani 
+- Parker Fleming
 ## The Data
 - We will be acquiring data from CollegeFootballData.com, courtesy of @CFB_data, using cfbscrapR, created by Meyappan Subbaiah (@msubbaiah1).
 
