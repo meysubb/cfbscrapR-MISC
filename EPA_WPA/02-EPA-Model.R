@@ -95,7 +95,7 @@ ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25),
 # ep_cv_loso_calibration_results %>%
 #   ungroup() %>%
 #   mutate(next_score_type = fct_relevel(next_score_type,
-#                                        "Opp_Safety", "Opp_FG", 
+#                                        "Opp_Safety", "Opp_FG",
 #                                        "Opp_TD", "No_Score", "Safety",
 #                                        "FG", "TD"
 #   ),
@@ -112,13 +112,13 @@ ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25),
 #   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
 #   geom_abline(slope = 1, intercept = 0, color = "black", lty = 2) +
 #   coord_equal() +   geom_text(data = ann_text,aes(x = x, y = y, label = lab)) +
-#   scale_x_continuous(limits = c(0,1)) + 
-#   scale_y_continuous(limits = c(0,1)) + 
+#   scale_x_continuous(limits = c(0,1)) +
+#   scale_y_continuous(limits = c(0,1)) +
 #   labs(size = "Number of plays",
 #        x = "Estimated next score probability",
-#        y = "Observed next score probability") + 
+#        y = "Observed next score probability") +
 #   geom_text(data = ann_text, aes(x = x, y = y, label = lab)) +
-#   theme_bw() + 
+#   theme_bw() +
 #   theme(plot.title = element_text(hjust = 0.5),
 #         strip.background = element_blank(),
 #         strip.text = element_text(size = 18),
@@ -227,62 +227,6 @@ cv_fg_cal_error <- ep_fg_cv_loso_calibration_results %>%
 with(cv_fg_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
 # 0.01328626
 
-# # # need
-pbp_w_wts = pbp_no_OT %>%
-  mutate(
-    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
-      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
-    
-    # 2 - score differential
-    ScoreDiff_W = (max(abs_diff) - abs_diff) /
-      (max(abs_diff) - min(abs_diff)),
-    
-    # 3 - combo of 1 and 2
-    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
-    Total_W_Scaled = (Total_W - min(Total_W)) /
-      (max(Total_W) - min(Total_W)),
-    
-    # 4 - difference from holdout season
-    Season_Diff = abs(year - x),
-    Season_Diff_W = (max(Season_Diff) - Season_Diff) /
-      (max(Season_Diff) - min(Season_Diff)),
-    
-    # 5 - combo of 1, 2, and 4
-    Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W +
-      Season_Diff_W,
-    Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) /
-      (max(Total_Season_W) - min(Total_Season_W))
-  )
-
-
-ep_model <- nnet::multinom(Next_Score ~ TimeSecsRem + yards_to_goal + Under_two +
-                               down + log_ydstogo + log_ydstogo*down +
-                              yards_to_goal*down + Goal_To_Go, data = pbp_w_wts, maxit = 300,
-                           weights = Total_W_Scaled)
-
-ep_model
-saveRDS(ep_model,"models/ep_model.rds")
-# Load EPA Model
-ep_model = readRDS("models/ep_model.rds")
-
-
-all_years_epa = lapply(all_years, function(x) {
-  year = unique(x$year)
-  print(year)
-  val = calculate_epa(x,extra_cols=F)
-  return(val)
-})
-
-
-len = length(all_years_epa)
-
-for (i in 1:len) {
-  df = all_years_epa[[i]]
-  hist(df$EPA)
-  Sys.sleep(5)
-}
-
-ep_model
 ### Create Final Models 
 final_pbp = pbp_no_OT %>% mutate(
   # 1 - drive difference
@@ -297,7 +241,7 @@ final_pbp = pbp_no_OT %>% mutate(
     (max(Total_W) - min(Total_W)),
 )
 
-final_ep_model <-
+ep_model <-
   nnet::multinom(
     Next_Score ~ 
       TimeSecsRem + yards_to_goal + down + log_ydstogo + Goal_To_Go + Under_two +  
@@ -307,10 +251,11 @@ final_ep_model <-
     weights = Total_W_Scaled
   )
 
-save(final_ep_model, file="models/final_ep_model.RData")
-saveRDS(final_ep_model,file="models/final_ep_model.RDS")
+save(ep_model, file="models/final_ep_model.RData")
+saveRDS(ep_model,file="models/final_ep_model.RDS")
 
-
+# note looks like no extra points after 2014
+# need to separate them
 pbp_fg_df <- pbp_full_df %>% 
   filter(year>=2014) %>%   
   filter(grepl("Field Goal",play_type) | grepl("Extra Point",play_type)) %>%
@@ -334,3 +279,20 @@ fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
                       data = pbp_fg_df, family = "binomial")
 saveRDS(fg_model,"models/final_fg_model.rds")
 save(fg_model,file="models/final_fg_model.RData")
+
+
+all_years_epa = lapply(all_years, function(x) {
+  year = unique(x$year)
+  print(year)
+  val = calculate_epa(x,extra_cols=F)
+  return(val)
+})
+
+
+len = length(all_years_epa)
+
+for (i in 1:len) {
+  df = all_years_epa[[i]]
+  hist(df$EPA)
+  Sys.sleep(5)
+}
