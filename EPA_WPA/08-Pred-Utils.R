@@ -62,7 +62,7 @@ prep_df_epa2 <- function(dat) {
       new_yardline = 0,
       new_down = 0,
       new_distance = 0,
-      log_ydstogo = 0
+      #log_ydstogo = 0
     )
   
   turnover_ind = dat$play_type %in% turnover_play_type
@@ -102,7 +102,8 @@ prep_df_epa2 <- function(dat) {
   kickoff = c("Kickoff",
               "Kickoff Return (Offense)",
               "Kickoff Return Touchdown")
-  dat = dat %>% group_by(game_id, half) %>%
+  
+  dat2 = dat %>% group_by(game_id, half) %>%
     dplyr::arrange(new_id, .by_group = TRUE) %>%
     mutate(
       turnover_indicator = ifelse(
@@ -115,17 +116,18 @@ prep_df_epa2 <- function(dat) {
       down = ifelse(play_type %in% "Kickoff", 5, down),
       
       new_down = case_when(
-        play_type %in% normalplay & yards_gained >= distance ~ 1,
-        play_type %in% normalplay &
-          yards_gained < distance & down <= 3 ~ down + 1,
-        play_type %in% normalplay &
-          yards_gained < distance & down == 4 ~ 1,
+        play_type %in% score ~ 1,
+        play_type %in% kickoff ~ 1,
         play_type %in% turnover ~ 1,
         play_type %in% defense_score ~ 1,
-        play_type %in% score ~ 1,
-        play_type %in% kickoff ~ 1
+        play_type %in% normalplay & yards_gained >= distance ~ 1,
+        play_type %in% normalplay & yards_gained < distance & down <= 3 ~ down + 1,
+        play_type %in% normalplay & yards_gained < distance & down == 4 ~ 1,
+        TRUE ~ 10
       ),
       
+      yards_gained = as.numeric(yards_gained),
+      start_yards_to_goal = as.numeric(start_yards_to_goal),
       new_distance = case_when(
         play_type %in% normalplay &
           yards_gained >= distance &
@@ -168,6 +170,19 @@ prep_df_epa2 <- function(dat) {
     ) %>%
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% ungroup()
   
+  
+  punt_plays = dat$play_type == "Punt"
+  touchback_punt = (stringr::str_detect(dat$play_text,"touchback")) & (punt_plays)
+  yds_gained_more_0 = (dat$yards_gained > 0 ) & punt_plays
+  dat[punt_plays,"new_down"] = 1
+  dat[punt_plays,"new_distance"] = 10
+  dat[punt_plays,"new_log_ydstogo"] = log(10)
+  dat[punt_plays,"new_Goal_To_Go"] = 0
+  dat[touchback_punt,"new_yardline"] = 80
+  dat[yds_gained_more_0,"new_yardline"] = 100 - (with(dat[yds_gained_more_0,],yards_to_goal-yards_gained))
+  
+  
+  
   end_of_half_plays = is.na(dat$new_yardline) &
     (dat$new_TimeSecsRem == 0)
   if (any(end_of_half_plays)) {
@@ -189,6 +204,15 @@ prep_df_epa2 <- function(dat) {
     new_id,
     game_id,
     drive_id,
+    TimeSecsRem,
+    down,
+    distance,
+    yards_to_goal,
+    yards_gained,
+    log_ydstogo,
+    Goal_To_Go,
+    play_type,
+    play_text,
     new_TimeSecsRem,
     new_down,
     new_distance,
@@ -199,9 +223,9 @@ prep_df_epa2 <- function(dat) {
     end_half_game,
     turnover
   ) %>% arrange(new_id)
-  colnames(dat) = gsub("new_", "", colnames(dat))
-  colnames(dat)[8] <- "yards_to_goal"
-  colnames(dat)[2] <- "new_id"
+  # colnames(dat) = gsub("new_", "", colnames(dat))
+  # colnames(dat)[8] <- "yards_to_goal"
+  # colnames(dat)[2] <- "new_id"
   
   return(dat)
 }
