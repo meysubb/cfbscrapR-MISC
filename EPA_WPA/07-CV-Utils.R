@@ -98,11 +98,9 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
     return
 }
 
-calc_ep_multinom_fg_loso_cv <-
-  function(ep_formula,
-           fg_formula,
-           weight_type = 3,
-           ep_model_data) {
+calc_ep_multinom_fg_loso_cv <-function(ep_formula, fg_formula, 
+                                       weight_type = 3, 
+                                       ep_model_data) {
     # Create vector of seasons to generate hold out results for:
     seasons <- unique(ep_model_data$year)
     
@@ -251,18 +249,18 @@ calc_ep_multinom_fg_loso_cv <-
               
               # Now update the probabilities for the FG attempts
               # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
-              for(i in 1:length(make_fg_prob)){
-                preds_ep[fg_test_attempt_i[[i]], "FG"] <- make_fg_prob[[i]] + 
-                                                    missed_fg_ep_preds[i,"Opp_FG"]
-                # Update the other columns based on the opposite possession:
-                preds_ep[fg_test_attempt_i[[i]], "TD"] <- missed_fg_ep_preds[i, "Opp_TD"]
-                preds_ep[fg_test_attempt_i[[i]], "Opp_FG"] <- missed_fg_ep_preds[i, "FG"]
-                preds_ep[fg_test_attempt_i[[i]], "Opp_TD"] <- missed_fg_ep_preds[i, "TD"]
-                preds_ep[fg_test_attempt_i[[i]], "Safety"] <- missed_fg_ep_preds[i, "Opp_Safety"]
-                preds_ep[fg_test_attempt_i[[i]], "Opp_Safety"] <- missed_fg_ep_preds[i, "Safety"]
-                preds_ep[fg_test_attempt_i[[i]], "No_Score"] <- missed_fg_ep_preds[i, "No_Score"]
-              }
-              
+             
+              preds_ep[fg_test_attempt_i, "FG"] <- make_fg_prob + 
+                                                  missed_fg_ep_preds[,"Opp_FG"]
+              # Update the other columns based on the opposite possession:
+              preds_ep[fg_test_attempt_i, "TD"] <- missed_fg_ep_preds[, "Opp_TD"]
+              preds_ep[fg_test_attempt_i, "Opp_FG"] <- missed_fg_ep_preds[, "FG"]
+              preds_ep[fg_test_attempt_i, "Opp_TD"] <- missed_fg_ep_preds[, "TD"]
+              preds_ep[fg_test_attempt_i, "Safety"] <- missed_fg_ep_preds[, "Opp_Safety"]
+              preds_ep[fg_test_attempt_i, "Opp_Safety"] <- missed_fg_ep_preds[, "Safety"]
+              preds_ep[fg_test_attempt_i, "No_Score"] <- missed_fg_ep_preds[, "No_Score"]
+            
+            
               test_preds_ep <- cbind(test_data, preds_ep)
               
               csvfn = glue::glue("data/EPA_FG_Calcs_season_{x}.csv")
@@ -311,8 +309,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     "Kickoff Touchdown"
   )
   
-  pred_df = clean_pbp_dat %>% arrange(id) %>%  select(
-    id,
+  pred_df = clean_pbp_dat %>% arrange(id_play) %>%  select(
+    id_play,
     drive_id,
     game_id,
     TimeSecsRem,
@@ -329,7 +327,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   colnames(ep_start) <- ep_model$lev
   ep_start_update = epa_fg_probs(dat = clean_pbp_dat,
                                  current_probs = ep_start,
-                                 fg_model = fg_model)
+                                 fg_mod = fg_model)
   weights = c(0, 3,-3,-2,-7, 2, 7)
   pred_df$ep_before = apply(ep_start_update, 1, function(row) {
     sum(row * weights)
