@@ -5,10 +5,8 @@ library(stringr)
 library(tidyverse)
 library(nnet)
 library(mgcv)
-
 source("06-Data-Ingest-Utils.R")
 source("07-CV-Utils.R")
-source("08-Pred-Utils.R")
 
 pbp_full_df <- readRDS(file = "data/pbp.rds")
 
@@ -64,7 +62,6 @@ ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~
 # (NOTE: this dataset is not pushed due to its size exceeding
 # the github limit but will be referenced in other files)
 write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
-saveRDS(ep_model_loso_preds,"data/ep_model_data_loso.RDS")
 
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
@@ -94,7 +91,8 @@ ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25),
                        next_score_type = factor("No Score (0)"))
 
 # # Create the calibration chart:
-# ep_cv_loso_calibration_results %>%ungroup() %>%
+# ep_cv_loso_calibration_results %>%
+#   ungroup() %>%
 #   mutate(next_score_type = fct_relevel(next_score_type,
 #                                        "Opp_Safety", "Opp_FG",
 #                                        "Opp_TD", "No_Score", "Safety",
@@ -156,13 +154,12 @@ ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~
                                                       as.formula("scoring ~ s(yards_to_goal)"),
                                                       ep_model_data = pbp_no_OT)
 write.csv(ep_fg_model_loso_preds,"data/ep_fg_model_data_loso.csv",row.names=FALSE)
-saveRDS(ep_fg_model_loso_preds,"data/ep_fg_model_data_loso.RDS")
-
+ep_fg_model_loso_preds <- read.csv("data/ep_fg_model_data_loso.csv")
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
 ep_fg_model_preds <- 
   cbind(Next_Score = ep_fg_model_loso_preds[,c("Next_Score")],
-            ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
+        ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
 ep_fg_cv_loso_calibration_results <- ep_fg_model_preds %>%
   # Create a row index column:
   mutate(play_index = 1:n()) %>%
@@ -229,48 +226,6 @@ cv_fg_cal_error <- ep_fg_cv_loso_calibration_results %>%
 with(cv_fg_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
 # 0.01328626
 
-# # # need
-pbp_w_wts = pbp_no_OT %>%
-  mutate(
-    Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
-      (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
-    
-    # 2 - score differential
-    ScoreDiff_W = (max(abs_diff) - abs_diff) /
-      (max(abs_diff) - min(abs_diff)),
-    
-    # 3 - combo of 1 and 2
-    Total_W = Drive_Score_Dist_W + ScoreDiff_W,
-    Total_W_Scaled = (Total_W - min(Total_W)) /
-      (max(Total_W) - min(Total_W)),
-    
-    # 4 - difference from holdout season
-    Season_Diff = abs(year - 2019),
-    Season_Diff_W = (max(Season_Diff) - Season_Diff) /
-      (max(Season_Diff) - min(Season_Diff)),
-    
-    # 5 - combo of 1, 2, and 4
-    Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W +
-      Season_Diff_W,
-    Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) /
-      (max(Total_Season_W) - min(Total_Season_W))
-  )
-
-
-ep_model <- nnet::multinom(
-  Next_Score ~ TimeSecsRem + yards_to_goal + down + 
-              log_ydstogo + Goal_To_Go + Under_two +  
-              log_ydstogo*down + yards_to_goal*down + Goal_To_Go*log_ydstogo, 
-  data = pbp_w_wts,
-  maxit = 300,
-  weights = Total_W_Scaled
-)
-ep_model
-saveRDS(ep_model,"models/ep_model.rds")
-# Load EPA Model
-ep_model = readRDS("models/ep_model.rds")
-
-
 ### Create Final Models 
 final_pbp = pbp_no_OT %>% mutate(
   # 1 - drive difference
@@ -285,7 +240,7 @@ final_pbp = pbp_no_OT %>% mutate(
     (max(Total_W) - min(Total_W))
 )
 
-final_ep_model <-
+ep_model <-
   nnet::multinom(
     Next_Score ~ 
       TimeSecsRem + yards_to_goal + down + log_ydstogo + Goal_To_Go + Under_two +  
@@ -295,10 +250,11 @@ final_ep_model <-
     weights = Total_W_Scaled
   )
 
-save(final_ep_model, file="models/final_ep_model.RData")
-saveRDS(final_ep_model,file="models/final_ep_model.RDS")
+save(ep_model, file="models/final_ep_model.RData")
+saveRDS(ep_model,file="models/final_ep_model.RDS")
 
-
+# note looks like no extra points after 2014
+# need to separate them
 pbp_fg_df <- pbp_full_df %>% 
   filter(year>=2014) %>%   
   filter(grepl("Field Goal",play_type) | grepl("Extra Point",play_type)) %>%
@@ -322,12 +278,14 @@ fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
                       data = pbp_fg_df, family = "binomial")
 saveRDS(fg_model,"models/final_fg_model.rds")
 save(fg_model,file="models/final_fg_model.RData")
-#------------------------------------------------------------------------------
-ep_model
-fg_model
+
+
+source("08-Pred-Utils.R")
+
+calculate_epa_local(final_pbp,ep_model,fg_model)
 final_pbp_preds <- calculate_epa_local(final_pbp,ep_model,fg_model)
 
-all_years_epa = lapply(all_years, function(x) {
+all_years_epa = lapply(final_pbp, function(x) {
   year = unique(x$year)
   print(year)
   val = calculate_epa(x,extra_cols=F)
@@ -342,4 +300,3 @@ for (i in 1:len) {
   hist(df$EPA)
   Sys.sleep(5)
 }
-
