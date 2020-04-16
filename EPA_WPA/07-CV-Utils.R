@@ -252,7 +252,7 @@ calc_ep_multinom_fg_loso_cv <-
               # Now update the probabilities for the FG attempts
               # (also includes Opp_Field_Goal probability from missed_fg_ep_preds)
               preds_ep[fg_test_attempt_i, "FG"] <- make_fg_prob + 
-                                                  missed_fg_ep_preds[,"Opp_FG"]
+                missed_fg_ep_preds[,"Opp_FG"]
               # Update the other columns based on the opposite possession:
               preds_ep[fg_test_attempt_i, "TD"] <- missed_fg_ep_preds[, "Opp_TD"]
               preds_ep[fg_test_attempt_i, "Opp_FG"] <- missed_fg_ep_preds[, "FG"]

@@ -80,8 +80,9 @@ drive_join_df = dat_merge %>% select(home_team, drive_id) %>%
 
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
-clean_all_years = all_years %>% mutate(drive_id = as.numeric(drive_id)) %>% inner_join(drive_join_df, by =
-                                                                                         c('drive_id')) %>%
+clean_all_years = all_years %>% 
+  mutate(drive_id = as.numeric(drive_id)) %>% 
+  inner_join(drive_join_df, by =c('drive_id')) %>%
   arrange(drive_id) %>%
   mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
   mutate(
@@ -199,4 +200,6 @@ pbp_full_df = pbp_full_df %>%
       (max(Total_W) - min(Total_W))
   )
 
-saveRDS(pbp_full_df, "data/pbp.rds")
+pbp_full_TO_df <- add_timeout_cols(pbp_full_df)
+
+saveRDS(pbp_full_TO_df, "data/pbp.RDS")
