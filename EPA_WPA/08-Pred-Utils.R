@@ -186,10 +186,11 @@ prep_df_epa2 <- function(dat) {
           yards_gained < distance &
           down == 4 &
           (100 - (yards_to_goal  - yards_gained) <= 10) ~ 100 - yards_to_goal,
-        play_type %in% turnover_vec &
-          (100 - (yards_to_goal + yards_gained) >= 10) ~ 10,
-        play_type %in% turnover_vec &
-          (100 - (yards_to_goal + yards_gained) <= 10) ~ 100 - (yards_to_goal  + yards_gained),
+        play_type %in% turnover_vec ~ 10,
+        # play_type %in% turnover_vec &
+        #   (100 - (yards_to_goal + yards_gained) >= 10) ~ 10,
+        # play_type %in% turnover_vec &
+        #   (100 - (yards_to_goal + yards_gained) <= 10) ~ 100 - (yards_to_goal  + yards_gained),
         play_type %in% defense_score_vec ~ 0,
         play_type %in% score ~ 0,
         play_type %in% kickoff ~ 10
@@ -257,6 +258,17 @@ prep_df_epa2 <- function(dat) {
   missing_yd_line = dat$new_yardline == 0
   dat$new_yardline[missing_yd_line] = 99
   dat$new_log_ydstogo[missing_yd_line] = log(99)
+  
+  
+#--General weird plays that don't have an easy fix----
+  #browser()
+  na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline == 100) 
+  dat$new_yardline[na_yd_line] = dat$yard_line[na_yd_line+1]
+  
+  neg_distance = which(dat$new_distance < 0)
+  dat$new_distance[neg_distance] = dat$distance[neg_distance+1]
+  
+  
   
   dat = dat %>% 
     mutate(new_down = as.factor(new_down)) %>%
