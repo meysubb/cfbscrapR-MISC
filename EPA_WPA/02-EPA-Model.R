@@ -5,6 +5,7 @@ library(stringr)
 library(tidyverse)
 library(nnet)
 library(mgcv)
+
 source("06-Data-Ingest-Utils.R")
 source("07-CV-Utils.R")
 
@@ -154,12 +155,12 @@ ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~
                                                       as.formula("scoring ~ s(yards_to_goal)"),
                                                       ep_model_data = pbp_no_OT)
 write.csv(ep_fg_model_loso_preds,"data/ep_fg_model_data_loso.csv",row.names=FALSE)
-ep_fg_model_loso_preds <- read.csv("data/ep_fg_model_data_loso.csv")
+
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
 ep_fg_model_preds <- 
   cbind(Next_Score = ep_fg_model_loso_preds[,c("Next_Score")],
-        ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
+            ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
 ep_fg_cv_loso_calibration_results <- ep_fg_model_preds %>%
   # Create a row index column:
   mutate(play_index = 1:n()) %>%
@@ -237,7 +238,7 @@ final_pbp = pbp_no_OT %>% mutate(
   # 3 - combo of 1 and 2
   Total_W = Drive_Score_Dist_W + ScoreDiff_W,
   Total_W_Scaled = (Total_W - min(Total_W)) /
-    (max(Total_W) - min(Total_W))
+    (max(Total_W) - min(Total_W)),
 )
 
 ep_model <-
@@ -281,11 +282,7 @@ save(fg_model,file="models/final_fg_model.RData")
 
 
 source("08-Pred-Utils.R")
-
-calculate_epa_local(final_pbp,ep_model,fg_model)
-final_pbp_preds <- calculate_epa_local(final_pbp,ep_model,fg_model)
-
-all_years_epa = lapply(final_pbp, function(x) {
+all_years_epa = lapply(all_years, function(x) {
   year = unique(x$year)
   print(year)
   val = calculate_epa(x,extra_cols=F)
