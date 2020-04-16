@@ -122,6 +122,7 @@ prep_df_epa2 <- function(dat) {
     "Missed Field Goal Return Touchdown",    
     "Fumble Recovery (Opponent)",
     "Fumble Recovery (Opponent) Touchdown",
+    "Fumble Return Touchdown",
     "Fumble Return Touchdown Touchdown",
     "Interception Return Touchdown",
     "Pass Interception Return",
@@ -211,6 +212,7 @@ prep_df_epa2 <- function(dat) {
     ) %>%
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% ungroup()
   
+#--Punt Plays--------------------------
   punt_plays = dat$play_type == "Punt"
   touchback_punt = ifelse(!is.na(stringr::str_detect(dat$play_text,"touchback") & (punt_plays)),
                           stringr::str_detect(dat$play_text,"touchback") & (punt_plays),FALSE)
@@ -224,10 +226,15 @@ prep_df_epa2 <- function(dat) {
   punt_ind = (dat$yards_gained == 0) & punt_plays & !touchback_punt
   if(any(punt_ind)){
     punt_play = dat[punt_ind,] %>% pull(play_text)
-    double_try = stringi::stri_extract_last_regex(punt_play,'(?<=the )[^,]+')
-    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    yds_punted = as.numeric(stringr::str_extract(
+      stringi::stri_extract_last_regex(punt_play, '(?<=for)[^,]+'),
+      "\\d+"
+    ))
     # ball always chances hands 
-    dat[punt_ind,"new_yardline"] = 100 - q
+    punt_yd_line = dat[punt_ind,] %>% pull(yard_line)
+    dat[punt_ind, "new_yardline"] = 100 - ifelse(punt_yd_line > 50, 
+                                             (punt_yd_line - yds_punted), 
+                                             (punt_yd_line + yds_punted))
     
   }
   

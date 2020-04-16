@@ -7,7 +7,8 @@ source("06-Data-Ingest-Utils.R")
 ## Pull Schedule data
 
 df <- data.frame(years = 2009:2019)
-schedule_df <- df %>% mutate(game_dat = purrr::map(years, cfb_game_info))
+schedule_df <-
+  df %>% mutate(game_dat = purrr::map(years, cfb_game_info))
 schedule_df <- schedule_df %>% tidyr::unnest(game_dat)
 colnames(schedule_df)[2] <- "game_id"
 
@@ -32,7 +33,7 @@ drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 dat_merge <- drive_dat %>% merge(schedule_df_clean)
 colnames(dat_merge)[7] <- "drive_id"
 dat_merge <-
-  dat_merge %>% select(-home_line_scores,-away_line_scores)
+  dat_merge %>% select(-home_line_scores, -away_line_scores)
 write.csv(dat_merge, "data/clean_drives_data.csv", row.names = FALSE)
 
 # dat_merge <- read_csv("data/clean_drives_data.csv")
@@ -68,20 +69,28 @@ td_e = str_detect(all_years$play_text, "TD") |
   str_detect(all_years$play_text, "Touchdown") |
   str_detect(all_years$play_text, "TOUCHDOWN")
 ## vectors
-kick_vec = str_detect(all_years$play_text, "KICK")
-punt_vec = str_detect(all_years$play_text, "Punt") |
-  str_detect(all_years$play_text, "punt")
+kick_vec = str_detect(all_years$play_text, "KICK") &
+  !is.na(all_years$play_text)
+punt_vec = (str_detect(all_years$play_text, "Punt") |
+              str_detect(all_years$play_text, "punt")) &
+  !is.na(all_years$play_text)
 fumble_vec = str_detect(all_years$play_text, "fumble")
 ## tourchdown check , want where touchdowns aren't in the play_type
 td_check = !str_detect(all_years$play_type, "Touchdown")
-# fix kickoff return TDs
+# fix kickoff fumble return TDs
 all_years$play_type[kick_vec & fumble_vec & td_e & td_check] <-
   paste0(all_years$play_type[kick_vec &
-                               fumble_vec & td_e & td_check], " Touchdown")
+                               fumble_vec &
+                               td_e & td_check], " Touchdown")
 # fix punt return TDs
 all_years$play_type[punt_vec & td_e & td_check] <-
   paste0(all_years$play_type[punt_vec &
                                td_e & td_check], " Touchdown")
+# fix douplicate TD names
+pun_td_sq = (all_years$play_type == "Punt Touchdown Touchdown")
+all_years$play_type[pun_td_sq] <- "Punt Touchdown"
+
+
 saveRDS(all_years, "data/raw_all_years.rds")
 # all_years <- readRDS("data/raw_all_years.rds")
 
@@ -90,9 +99,9 @@ drive_join_df = dat_merge %>% select(home_team, drive_id) %>%
 
 # Figure out the adjusted yard-line, since the API has it in terms of home team
 # Need to remove OT data, since the clock is just binary.
-clean_all_years = all_years %>% 
-  mutate(drive_id = as.numeric(drive_id)) %>% 
-  inner_join(drive_join_df, by =c('drive_id')) %>%
+clean_all_years = all_years %>%
+  mutate(drive_id = as.numeric(drive_id)) %>%
+  inner_join(drive_join_df, by = c('drive_id')) %>%
   arrange(drive_id) %>%
   mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
   mutate(
@@ -101,7 +110,7 @@ clean_all_years = all_years %>%
     half = ifelse(period <= 2, 1, 2),
     # make sure all kick off downs are -1
     down = ifelse(down == 5 &
-                    str_detect(play_type, "Kickoff"), -1, down)
+                    str_detect(play_type, "Kickoff"),-1, down)
   ) %>% filter(down < 5)
 
 ## Figure out the next score now
