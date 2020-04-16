@@ -65,7 +65,7 @@ prep_df_epa2 <- function(dat) {
     'Pass Interception',
     'Punt'
   )
-  
+
   dat = dat %>%
     mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
     mutate(
