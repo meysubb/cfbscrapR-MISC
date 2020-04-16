@@ -62,16 +62,26 @@ year_split = lapply(year_split, function(x) {
 
 all_years = bind_rows(year_split) #%>% inner_join(drive)
 
-# some of these were mis-labelled
-# fix
+# check which special teams plays had touchdowns in the text
+# but not in the description and add touchdown to them
 td_e = str_detect(all_years$play_text, "TD") |
   str_detect(all_years$play_text, "Touchdown") |
   str_detect(all_years$play_text, "TOUCHDOWN")
-all_years$play_type[grepl("KICK", all_years$play_text) &
-                      str_detect(all_years$play_text, "fumble") &
-                      td_e] <-
-  paste0(all_years$play_type[grepl("KICK", all_years$play_text) &
-                               str_detect(all_years$play_text, "fumble") & td_e], " Touchdown")
+## vectors
+kick_vec = str_detect(all_years$play_text, "KICK")
+punt_vec = str_detect(all_years$play_text, "Punt") |
+  str_detect(all_years$play_text, "punt")
+fumble_vec = str_detect(all_years$play_text, "fumble")
+## tourchdown check , want where touchdowns aren't in the play_type
+td_check = !str_detect(all_years$play_type, "Touchdown")
+# fix kickoff return TDs
+all_years$play_type[kick_vec & fumble_vec & td_e & td_check] <-
+  paste0(all_years$play_type[kick_vec &
+                               fumble_vec & td_e & td_check], " Touchdown")
+# fix punt return TDs
+all_years$play_type[punt_vec & td_e & td_check] <-
+  paste0(all_years$play_type[punt_vec &
+                               td_e & td_check], " Touchdown")
 saveRDS(all_years, "data/raw_all_years.rds")
 # all_years <- readRDS("data/raw_all_years.rds")
 
