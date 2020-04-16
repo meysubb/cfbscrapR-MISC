@@ -155,7 +155,7 @@ prep_df_epa2 <- function(dat) {
         1,
         0
       ),
-      down = as.factor(down),
+      down = as.numeric(down),
       down = ifelse(play_type %in% "Kickoff", 5, down),
       new_down = case_when(
         play_type %in% score ~ 1,
