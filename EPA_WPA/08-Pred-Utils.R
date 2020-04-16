@@ -262,7 +262,7 @@ prep_df_epa2 <- function(dat) {
   
 #--General weird plays that don't have an easy fix----
   #browser()
-  na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline == 100) 
+  na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline >= 100) 
   dat$new_yardline[na_yd_line] = dat$yard_line[na_yd_line+1]
   
   neg_distance = which(dat$new_distance < 0)
