@@ -267,6 +267,7 @@ prep_df_epa2 <- function(dat) {
   
   neg_distance = which(dat$new_distance < 0)
   dat$new_distance[neg_distance] = dat$distance[neg_distance+1]
+  dat$new_log_ydstogo[neg_distance] = log(dat$new_distance[neg_distance])
   
   
   
