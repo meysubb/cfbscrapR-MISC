@@ -86,8 +86,6 @@ prep_df_epa2 <- function(dat) {
       start_yardline = as.numeric(start_yardline),
       start_yards_to_goal = as.numeric(start_yards_to_goal),
       end_yards_to_goal = as.numeric(end_yards_to_goal),
-      new_id_play = gsub(pattern = unique(game_id), "", x = as.numeric(id_play)),
-      new_id_play = as.numeric(new_id_play),
       clock.minutes = ifelse(period %in% c(1, 3), 15 + clock.minutes, clock.minutes),
       raw_secs = clock.minutes * 60 + clock.seconds,
       half = ifelse(period <= 2, 1, 2),
@@ -168,7 +166,7 @@ prep_df_epa2 <- function(dat) {
     "Kickoff Touchdown"
   )
   dat = dat %>% group_by(game_id, half) %>%
-    dplyr::arrange(new_id_play, .by_group = TRUE) %>%
+    dplyr::arrange(id_play, .by_group = TRUE) %>%
     mutate(
       turnover_indicator = ifelse(
         play_type %in% defense_score_vec | play_type %in% turnover_vec |
@@ -262,8 +260,7 @@ prep_df_epa2 <- function(dat) {
   
   
   #--End of Half Plays--------------------------
-  end_of_half_plays = is.na(dat$new_yardline) &
-    (dat$new_TimeSecsRem == 0)
+  end_of_half_plays = (dat$new_TimeSecsRem == 0)
   if (any(end_of_half_plays)) {
     dat$new_yardline[end_of_half_plays] <- 99
     dat$new_down[end_of_half_plays] <- 4
@@ -296,12 +293,9 @@ prep_df_epa2 <- function(dat) {
     mutate(new_down = as.factor(new_down),
            new_yardline = ifelse(is.na(new_yardline)&play_type %in% c("Field Goal Missed","Blocked Field Goal"),100-(yards_to_goal-9),75)) %>%
     select(
-      id_play,
-      new_id_play,
       game_id,
       drive_id,
-      play_type,
-      play_text,
+      id_play,
       new_TimeSecsRem,
       new_down,
       new_distance,
@@ -310,14 +304,11 @@ prep_df_epa2 <- function(dat) {
       new_Goal_To_Go,
       new_Under_two,
       end_half_game,
-      turnover,
-      yards_gained,
-      yards_to_goal
-    ) %>% arrange(new_id_play)
+      turnover
+    ) %>% arrange(id_play)
   colnames(dat) = gsub("new_", "", colnames(dat))
-  colnames(dat)[10] <- "yards_to_goal"
-  colnames(dat)[3] <- "new_id_play"
-  
+  colnames(dat)[7] <- "yards_to_goal"
+
   return(dat)
 }
 
