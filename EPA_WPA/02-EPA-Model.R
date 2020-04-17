@@ -239,7 +239,7 @@ final_pbp = pbp_no_OT %>% mutate(
   # 3 - combo of 1 and 2
   Total_W = Drive_Score_Dist_W + ScoreDiff_W,
   Total_W_Scaled = (Total_W - min(Total_W)) /
-    (max(Total_W) - min(Total_W)),
+    (max(Total_W) - min(Total_W))
 )
 
 ep_model <-
