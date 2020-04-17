@@ -73,7 +73,8 @@ prep_df_epa2 <- function(dat) {
     "Pass Interception Return Touchdown",
     "Punt",
     "Punt Return Touchdown",
-    "Sack Touchdown"
+    "Sack Touchdown",
+    "Uncategorized Touchdown"
   )
   
   dat = dat %>%
