@@ -14,21 +14,21 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
                                     type = "response")
   
   fg_dat<- fg_dat %>%
-            # Subtract 5.065401 from TimeSecs since average time for FG att:
-            mutate(
-              TimeSecsRem = TimeSecsRem - 5.065401,
-              # Correct the yrdline100:
-              yards_to_goal = 100 - (yards_to_goal - 9),
-              # Not GoalToGo:
-              Goal_To_Go = rep(FALSE, n()),
-              # Now first down:
-              down = rep("1", n()),
-              # 10 yards to go
-              log_ydstogo = rep(log(10), n()),
-              # Create Under_TwoMinute_Warning indicator
-              Under_two = ifelse(TimeSecsRem < 120,
-                                 TRUE, FALSE)
-            )
+    # Subtract 5.065401 from TimeSecs since average time for FG att:
+    mutate(
+      TimeSecsRem = TimeSecsRem - 5.065401,
+      # Correct the yrdline100:
+      yards_to_goal = 100 - (yards_to_goal - 9),
+      # Not GoalToGo:
+      Goal_To_Go = rep(FALSE, n()),
+      # Now first down:
+      down = rep("1", n()),
+      # 10 yards to go
+      log_ydstogo = rep(log(10), n()),
+      # Create Under_TwoMinute_Warning indicator
+      Under_two = ifelse(TimeSecsRem < 120,
+                         TRUE, FALSE)
+    )
   # add in the fg make prob into this
   current_probs2 <- current_probs
   #current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
@@ -56,20 +56,29 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
 
 prep_df_epa2 <- function(dat) {
   turnover_play_type = c(
-    'Fumble Recovery (Opponent)',
-    'Pass Interception Return',
-    'Interception Return Touchdown',
-    'Fumble Return Touchdown',
-    'Safety',
-    'Interception',
-    'Pass Interception',
-    'Punt'
+    "Blocked Field Goal",
+    "Blocked Field Goal Touchdown",    
+    "Blocked Punt",
+    "Blocked Punt Touchdown",
+    "Field Goal Missed",
+    "Missed Field Goal Return",
+    "Missed Field Goal Return Touchdown",    
+    "Fumble Recovery (Opponent)",
+    "Fumble Recovery (Opponent) Touchdown",
+    "Fumble Return Touchdown",
+    "Fumble Return Touchdown Touchdown",
+    "Interception",
+    "Interception Return Touchdown",
+    "Pass Interception Return",
+    "Pass Interception Return Touchdown",
+    "Punt",
+    "Punt Return Touchdown",
+    "Sack Touchdown"
   )
   
   dat = dat %>%
     mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
     mutate(
-      
       yards_to_goal = as.numeric(yards_to_goal),
       distance = distance,
       yards_gained = as.numeric(yards_gained),
@@ -109,8 +118,8 @@ prep_df_epa2 <- function(dat) {
     "Safety",
     "Sack Touchdown",    
     "Interception Return Touchdown",
-    "Pass Interception Return Touchdown"
-
+    "Pass Interception Return Touchdown",
+    "Uncategorized Touchdown"
   )
   turnover_vec = c(
     "Blocked Field Goal",
@@ -122,29 +131,41 @@ prep_df_epa2 <- function(dat) {
     "Missed Field Goal Return Touchdown",    
     "Fumble Recovery (Opponent)",
     "Fumble Recovery (Opponent) Touchdown",
+    "Fumble Return Touchdown",
     "Fumble Return Touchdown Touchdown",
+    "Defensive 2pt Conversion",
+    "Interception",
     "Interception Return Touchdown",
     "Pass Interception Return",
     "Pass Interception Return Touchdown",
     "Punt",
     "Punt Return Touchdown",
-    "Sack Touchdown"
+    "Sack Touchdown",
+    "Uncategorized Touchdown"
   )
   normalplay = c(
     "Rush",
+    "Pass",
     "Pass Reception",
     "Pass Incompletion",
     "Sack",
-    "Fumble Recovery (Own)")
-  
-  score = c("Passing Touchdown", "Rushing Touchdown", "Field Goal Good",
-            "Pass Reception Touchdown","Fumble Recovery (Own) Touchdown",
-            "Punt Touchdown","Rushing Touchdown Touchdown")
-  kickoff = c("Kickoff",
-              "Kickoff Return (Offense)",
-              "Kickoff Return Touchdown",
-              "Kickoff Touchdown")
-  
+    "Fumble Recovery (Own)"
+  )
+  score = c(
+    "Passing Touchdown", 
+    "Rushing Touchdown", 
+    "Field Goal Good",
+    "Pass Reception Touchdown",
+    "Fumble Recovery (Own) Touchdown",
+    "Punt Touchdown",
+    "Rushing Touchdown Touchdown"
+  )
+  kickoff = c(
+    "Kickoff",
+    "Kickoff Return (Offense)",
+    "Kickoff Return Touchdown",
+    "Kickoff Touchdown"
+  )
   dat = dat %>% group_by(game_id, half) %>%
     dplyr::arrange(new_id_play, .by_group = TRUE) %>%
     mutate(
@@ -155,7 +176,7 @@ prep_df_epa2 <- function(dat) {
         1,
         0
       ),
-      down = as.factor(down),
+      down = as.numeric(down),
       down = ifelse(play_type %in% "Kickoff", 5, down),
       new_down = case_when(
         play_type %in% score ~ 1,
@@ -185,15 +206,16 @@ prep_df_epa2 <- function(dat) {
           yards_gained < distance &
           down == 4 &
           (100 - (yards_to_goal  - yards_gained) <= 10) ~ 100 - yards_to_goal,
-        play_type %in% turnover_vec &
-          (100 - (yards_to_goal + yards_gained) >= 10) ~ 10,
-        play_type %in% turnover_vec &
-          (100 - (yards_to_goal + yards_gained) <= 10) ~ 100 - (yards_to_goal  + yards_gained),
+        play_type %in% turnover_vec ~ 10,
+        # play_type %in% turnover_vec &
+        #   (100 - (yards_to_goal + yards_gained) >= 10) ~ 10,
+        # play_type %in% turnover_vec &
+        #   (100 - (yards_to_goal + yards_gained) <= 10) ~ 100 - (yards_to_goal  + yards_gained),
         play_type %in% defense_score_vec ~ 0,
         play_type %in% score ~ 0,
         play_type %in% kickoff ~ 10
       )),
-
+      
       new_yardline = as.numeric(case_when(
         play_type %in% normalplay ~ yards_to_goal - yards_gained,
         play_type %in% score ~ 0,
@@ -203,7 +225,7 @@ prep_df_epa2 <- function(dat) {
       )),
       
       new_TimeSecsRem = ifelse(!is.na(lead(TimeSecsRem)),lead(TimeSecsRem),0),
-      new_log_ydstogo = log(new_distance),
+      new_log_ydstogo = ifelse(new_distance == 0, log(0.5),log(new_distance)),
       new_Goal_To_Go = ifelse(new_yardline <= new_distance, TRUE, FALSE),
       # new under two minute warnings
       new_Under_two = new_TimeSecsRem <= 120,
@@ -211,6 +233,7 @@ prep_df_epa2 <- function(dat) {
     ) %>%
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% ungroup()
   
+  #--Punt Plays--------------------------
   punt_plays = dat$play_type == "Punt"
   touchback_punt = ifelse(!is.na(stringr::str_detect(dat$play_text,"touchback") & (punt_plays)),
                           stringr::str_detect(dat$play_text,"touchback") & (punt_plays),FALSE)
@@ -224,15 +247,20 @@ prep_df_epa2 <- function(dat) {
   punt_ind = (dat$yards_gained == 0) & punt_plays & !touchback_punt
   if(any(punt_ind)){
     punt_play = dat[punt_ind,] %>% pull(play_text)
-    double_try = stringi::stri_extract_last_regex(punt_play,'(?<=the )[^,]+')
-    q = as.numeric(stringi::stri_extract_last_regex(double_try,"\\d+"))
+    yds_punted = as.numeric(stringr::str_extract(
+      stringi::stri_extract_last_regex(punt_play, '(?<=for)[^,]+'),
+      "\\d+"
+    ))
     # ball always chances hands 
-    dat[punt_ind,"new_yardline"] = 100 - q
+    punt_yd_line = dat[punt_ind,] %>% pull(yard_line)
+    dat[punt_ind, "new_yardline"] = 100 - ifelse(punt_yd_line > 50, 
+                                                 (punt_yd_line - yds_punted), 
+                                                 (punt_yd_line + yds_punted))
     
   }
   
   
-#--End of Half Plays--------------------------
+  #--End of Half Plays--------------------------
   end_of_half_plays = is.na(dat$new_yardline) &
     (dat$new_TimeSecsRem == 0)
   if (any(end_of_half_plays)) {
@@ -244,15 +272,28 @@ prep_df_epa2 <- function(dat) {
     dat$new_Under_two[end_of_half_plays] <-
       dat$new_TimeSecsRem[end_of_half_plays] <= 120
   }
-
-#--Missing yd_line Plays--------------------------
+  
+  #--Missing yd_line Plays--------------------------
   
   missing_yd_line = dat$new_yardline == 0
   dat$new_yardline[missing_yd_line] = 99
   dat$new_log_ydstogo[missing_yd_line] = log(99)
   
+  
+  #--General weird plays that don't have an easy fix----
+  #browser()
+  na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline >= 100) 
+  dat$new_yardline[na_yd_line] = dat$yard_line[na_yd_line+1]
+  
+  neg_distance = which(dat$new_distance < 0)
+  dat$new_distance[neg_distance] = dat$distance[neg_distance+1]
+  dat$new_log_ydstogo[neg_distance] = log(dat$new_distance[neg_distance])
+  
+  
+  
   dat = dat %>% 
-    mutate(new_down = as.factor(new_down)) %>%
+    mutate(new_down = as.factor(new_down),
+           new_yardline = ifelse(is.na(new_yardline)&play_type %in% c("Field Goal Missed","Blocked Field Goal"),100-(yards_to_goal-9),75)) %>%
     select(
       id_play,
       new_id_play,
@@ -268,11 +309,13 @@ prep_df_epa2 <- function(dat) {
       new_Goal_To_Go,
       new_Under_two,
       end_half_game,
-      turnover
+      turnover,
+      yards_gained,
+      yards_to_goal
     ) %>% arrange(new_id_play)
   colnames(dat) = gsub("new_", "", colnames(dat))
-  colnames(dat)[8] <- "yards_to_goal"
-  colnames(dat)[2] <- "new_id_play"
+  colnames(dat)[10] <- "yards_to_goal"
+  colnames(dat)[3] <- "new_id_play"
   
   return(dat)
 }
@@ -292,12 +335,14 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     "Fumble Return Touchdown Touchdown",
     "Missed Field Goal Return",
     "Missed Field Goal Return Touchdown",
+    "Interception",
     "Interception Return Touchdown",
     "Pass Interception Return",
     "Pass Interception Return Touchdown",
     "Punt",
     "Punt Return Touchdown",
-    "Sack Touchdown"
+    "Sack Touchdown",
+    "Uncategorized Touchdown"
   )
   off_TD = c(
     "Passing Touchdown", 
@@ -320,7 +365,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     "Fumble Recovery (Opponent) Touchdown",
     "Fumble Return Touchdown Touchdown",
     "Pass Interception Return Touchdown",
-    "Sack Touchdown"
+    "Sack Touchdown",
+    "Uncategorized Touchdown"
   )
   
   pred_df = clean_pbp_dat %>% arrange(id_play) %>%  select(
@@ -350,7 +396,6 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   })
   
   ## Prep for EP_after
-  prep_df_after = prep_df_epa2(clean_pbp_dat)
   if (length(unique(clean_pbp_dat$game_id)) > 1) {
     # if you are trying to deal with multiple games at once
     # then you have to get the after individually.
@@ -360,6 +405,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
                                 filter(game_id == x) %>%
                                 prep_df_epa2()
                             })
+  }else{
+    prep_df_after = prep_df_epa2(clean_pbp_dat)
   }
   print("Done with prep_df_epa2!")
   
