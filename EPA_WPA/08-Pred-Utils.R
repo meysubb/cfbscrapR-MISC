@@ -76,7 +76,7 @@ prep_df_epa2 <- function(dat) {
     "Sack Touchdown",
     "Uncategorized Touchdown"
   )
-  
+
   dat = dat %>%
     mutate_at(vars(clock.minutes, clock.seconds), ~ replace_na(., 0)) %>%
     mutate(
@@ -232,7 +232,7 @@ prep_df_epa2 <- function(dat) {
     ) %>%
     mutate_at(vars(new_TimeSecsRem), ~ replace_na(., 0)) %>% ungroup()
   
-  #--Punt Plays--------------------------
+#--Punt Plays--------------------------
   punt_plays = dat$play_type == "Punt"
   touchback_punt = ifelse(!is.na(stringr::str_detect(dat$play_text,"touchback") & (punt_plays)),
                           stringr::str_detect(dat$play_text,"touchback") & (punt_plays),FALSE)
@@ -253,8 +253,8 @@ prep_df_epa2 <- function(dat) {
     # ball always chances hands 
     punt_yd_line = dat[punt_ind,] %>% pull(yard_line)
     dat[punt_ind, "new_yardline"] = 100 - ifelse(punt_yd_line > 50, 
-                                                 (punt_yd_line - yds_punted), 
-                                                 (punt_yd_line + yds_punted))
+                                             (punt_yd_line - yds_punted), 
+                                             (punt_yd_line + yds_punted))
     
   }
   
@@ -279,7 +279,6 @@ prep_df_epa2 <- function(dat) {
   
   
   #--General weird plays that don't have an easy fix----
-  #browser()
   na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline >= 100) 
   dat$new_yardline[na_yd_line] = dat$yard_line[na_yd_line+1]
   
