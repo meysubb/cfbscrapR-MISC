@@ -291,10 +291,10 @@ calc_wp_gam_loso_cv <- function(wp_formula, wp_model_data) {
             
             # Build model:
             wp_model <-
-              bam(wp_formula, data = train_data, family = "binomial", cluster=cl)
+              bam(wp_formula, data = train_data, family = "binomial", cluster = cl)
             
-            stopCluster(cl)
             print(glue::glue("Finish training model for {x}"))
+            stopCluster(cl)
             # Generate and return prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
             # only necessary variables are the predicted probabilities

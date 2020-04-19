@@ -3,6 +3,8 @@ library(dplyr)
 library(readr)
 library(stringr)
 library(parallel)
+library(mgcv)
+library(purrr)
 source("07-CV-Utils.R")
 source("08-Pred-Utils.R")
 
@@ -67,7 +69,7 @@ wp_cv_loso_calibration_results <- wp_model_loso_preds %>%
   group_by(period, bin_pred_prob) %>%
   # Calculate the calibration results:
   summarize(n_plays = n(), 
-            n_wins = length(which(Win_Indicator == 1)),
+            n_wins = length(which(win_ind == 1)),
             bin_actual_prob = n_wins / n_plays)
 
 
@@ -108,33 +110,31 @@ wp_cv_loso_calibration_results %>%
 wp_cv_cal_error <- wp_cv_loso_calibration_results %>% 
   ungroup() %>%
   mutate(cal_diff = abs(bin_pred_prob - bin_actual_prob)) %>%
-  group_by(qtr) %>% 
+  group_by(period) %>% 
   summarize(weight_cal_error = weighted.mean(cal_diff, n_plays, na.rm = TRUE),
             n_wins = sum(n_wins, na.rm = TRUE))
 
 # Overall weighted calibration error:
 with(wp_cv_cal_error, weighted.mean(weight_cal_error, n_wins))
-# 0.01309723
+# 0.02502889
 
 
 ## final calculations
+cl <- makeCluster(detectCores()-1)
 
-# library(parallel)
-# cl <- makeCluster(detectCores()-1)
-# 
-# 
-# wp_model <- mgcv::bam(Win_Indicator ~
-#                           s(ExpScoreDiff) +
-#                             s(TimeSecsRem, by = half) +
-#                             s(ExpScoreDiff_Time_Ratio) +
-#                             Under_two*off_timeouts_rem_before*half +
-#                             Under_two*def_timeouts_rem_before*half
-#                       data = epa_w, family = "binomial", cluster=cl)
-# 
-# stopCluster(cl)
 
-save(wp_model, file="data/wp_model.RData")
+wp_model <- mgcv::bam(Win_Indicator ~
+                          s(ExpScoreDiff) +
+                            s(TimeSecsRem, by = half) +
+                            s(ExpScoreDiff_Time_Ratio) +
+                            Under_two*off_timeouts_rem_before*half +
+                            Under_two*def_timeouts_rem_before*half,
+                      data = epa_w, family = "binomial", cluster=cl)
 
-load("wp_model.RData")
-library(mgcv)
+stopCluster(cl)
+
+save(wp_model, file="data/final_wp_model.RData")
+
+
+
 
