@@ -5,7 +5,7 @@ Miscellaneous files for cfbscrapR (also includes work for EPA/WPA models)
 - [Saiem Gilani](https://github.com/saiemgilani "Saiem's GitHub") ([@saiemgilani](https://twitter.com/SaiemGilani?s=20 "Saiem's Twitter"))
 - [Parker Fleming](https://github.com/spfleming "Parker's GitHub") ([@statowar](https://twitter.com/statsowar?s=20 "Parker's Twitter"))
 ## The Data
-- We will be acquiring data from [CollegeFootballData.com](https://collegefootballdata.com/), courtesy of [@CFB_data](https://twitter.com/cfb_data "CollegeFootballData.com's Twitter"), using [cfbscrapR](https://github.com/meysubb/cfbscrapR "cfbscrapR GitHub repository"), created by [Meyappan Subbaiah](https://github.com/meysubb "Meyappan's GitHub") ([@msubbaiah1](https://twitter.com/msubbaiah1?s=20 "Meyappan's Twitter")).
+- We will be acquiring data from [CollegeFootballData.com](https://collegefootballdata.com/ "CollegeFootballData.com"), courtesy of [@CFB_data](https://twitter.com/cfb_data "CollegeFootballData.com's Twitter"), using [cfbscrapR](https://github.com/meysubb/cfbscrapR "cfbscrapR GitHub repository"), created by [Meyappan Subbaiah](https://github.com/meysubb "Meyappan's GitHub") ([@msubbaiah1](https://twitter.com/msubbaiah1?s=20 "Meyappan's Twitter")).
 
 # The Expected Points Model
 ## Outcome (target) variables
