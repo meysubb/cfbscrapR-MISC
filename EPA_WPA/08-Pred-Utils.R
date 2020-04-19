@@ -404,7 +404,6 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
                               filter(game_id == x) %>%
                               prep_df_epa2()
                           })
-  print("Done with prep_df_epa2!")
   
   ep_end = predict(ep_model, prep_df_after, type = 'prob')
   colnames(ep_end) <- ep_model$lev
@@ -432,7 +431,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   pred_df[turnover_plays, "ep_after"] = -1 * pred_df[turnover_plays, "ep_after"]
   
   # game end EP is 0
-  pred_df[pred_df$end_half_game == 1, "ep_after"] = 0
+  pred_df[pred_df$end_half_game_end == 1, "ep_after"] = 0
   
   ## scoring plays from here on out
   pred_df[(pred_df$play_type %in% off_TD), "ep_after"] = 7
