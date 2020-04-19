@@ -530,3 +530,36 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     )
   return(pred_df)
 }
+
+
+create_wpa <- function(df,wp_mod){
+  Off_Win_Prob = as.vector(predict(wp_mod,newdata=df,type="response"))
+  df2 = df %>% mutate(
+    wp = Off_Win_Prob,
+    def_wp = 1-wp,
+    home_wp = if_else(offense_play == home,
+                      wp,def_wp),
+    away_wp = if_else(offense_play != home,
+                      wp,def_wp)) %>% group_by(half) %>%
+    mutate(
+      # ball changes hand
+      change_of_poss = ifelse(offense_play == lead(offense_play), 0, 1),
+      change_of_poss = ifelse(is.na(change_of_poss), 0, change_of_poss)) %>% ungroup() %>%
+    mutate(
+      # base wpa
+      end_of_half = ifelse(half == lead(half),0,1),
+      lead_wp = lead(wp),
+      wpa_base = lead_wp - wp,
+      # account for turnover
+      wpa_change = ifelse(change_of_poss == 1, (1 - lead_wp) - wp, wpa_base),
+      wpa = ifelse(end_of_half==1,0,wpa_change),
+      home_wp_post = ifelse(offense_play == home,
+                            home_wp + wpa,
+                            home_wp - wpa),
+      away_wp_post = ifelse(offense_play != home,
+                            away_wp + wpa,
+                            away_wp - wpa),
+      adj_TimeSecsRem = ifelse(half == 1, 1800 + TimeSecsRem, TimeSecsRem)
+    )
+  return(df2)
+}

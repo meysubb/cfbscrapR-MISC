@@ -280,15 +280,21 @@ calc_wp_gam_loso_cv <- function(wp_formula, wp_model_data) {
   map_dfr(seasons,
           function(x) {
             # Separate test and training data:
+            print(glue::glue("Working on data from {x}"))
             test_data <- wp_model_data %>%
               filter(year == x)
             train_data <- wp_model_data %>%
               filter(year != x)
             
+            print("Create MP cluster")
+            cl <- makeCluster(detectCores()-1)
+            
             # Build model:
             wp_model <-
-              bam(wp_formula, data = train_data, family = "binomial")
+              bam(wp_formula, data = train_data, family = "binomial", cluster = cl)
             
+            print(glue::glue("Finish training model for {x}"))
+            stopCluster(cl)
             # Generate and return prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
             # only necessary variables are the predicted probabilities
