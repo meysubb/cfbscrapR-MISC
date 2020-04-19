@@ -3,6 +3,7 @@ library(dplyr)
 library(readr)
 library(stringr)
 source("07-CV-Utils.R")
+source("08-Pred-Utils.R")
 
 epa_14 <- readRDS("data/rds/EPA_FG_Calcs_2014.RDS")
 epa_15 <- readRDS("data/rds/EPA_FG_Calcs_2015.RDS")
@@ -11,7 +12,7 @@ epa_17 <- readRDS("data/rds/EPA_FG_Calcs_2017.RDS")
 epa_18 <- readRDS("data/rds/EPA_FG_Calcs_2018.RDS")
 epa_19 <- readRDS("data/rds/EPA_FG_Calcs_2019.RDS")
 
-epa <- 
+epa <- bind_rows(epa_14,epa_15,epa_16,epa_17,epa_18,epa_19)
 
 ## Game ID
 ## to see who won?
@@ -37,81 +38,6 @@ epa_w = epa %>% left_join(win_df) %>%
     half = as.factor(half),
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
   )
-
-# library(parallel)
-# cl <- makeCluster(detectCores()-1)
-# 
-# 
-# wp_model <- mgcv::bam(Win_Indicator ~
-#                           s(ExpScoreDiff) +
-#                             s(TimeSecsRem, by = half) +
-#                             s(ExpScoreDiff_Time_Ratio) +
-#                             Under_two*off_timeouts_rem_before*half +
-#                             Under_two*def_timeouts_rem_before*half
-#                       data = epa_w, family = "binomial", cluster=cl)
-# 
-# stopCluster(cl)
-
-save(wp_model, file="data/wp_model.RData")
-
-load("wp_model.RData")
-library(mgcv)
-
-create_wpa <- function(df,wp_mod){
-  Off_Win_Prob = as.vector(predict(wp_mod,newdata=df,type="response"))
-  df2 = df %>% mutate(
-    wp = Off_Win_Prob,
-    def_wp = 1-wp,
-    home_wp = if_else(offense_play == home,
-                      wp,def_wp),
-    away_wp = if_else(offense_play != home,
-                      wp,def_wp)) %>% group_by(half) %>%
-    mutate(
-      # ball changes hand
-      change_of_poss = ifelse(offense_play == lead(offense_play), 0, 1),
-      change_of_poss = ifelse(is.na(change_of_poss), 0, change_of_poss)) %>% ungroup() %>%
-    mutate(
-      # base wpa
-      end_of_half = ifelse(half == lead(half),0,1),
-      lead_wp = lead(wp),
-      wpa_base = lead_wp - wp,
-      # account for turnover
-      wpa_change = ifelse(change_of_poss == 1, (1 - lead_wp) - wp, wpa_base),
-      wpa = ifelse(end_of_half==1,0,wpa_change),
-      home_wp_post = ifelse(offense_play == home,
-                            home_wp + wpa,
-                            home_wp - wpa),
-      away_wp_post = ifelse(offense_play != home,
-                            away_wp + wpa,
-                            away_wp - wpa),
-      adj_TimeSecsRem = ifelse(half == 1, 1800 + TimeSecsRem, TimeSecsRem)
-  )
-  return(df2)
-}
-
-
-
-
-epa_19 <- readRDS("data/rds/EPA_calcs_2019.RDS")
-
-
-epa <- readRDS("data/ep_fg_model_data_loso.RDS")
-
-epa[is.na(epa$ep_after),"ep_after"] = 0
-epa$EPA <- epa$ep_after - epa$ep_before
-
-epa_w = epa %>% left_join(win_df) %>%
-  mutate(
-    score_diff = offense_score - defense_score,
-    home_EPA = ifelse(offense_play==home,EPA,-EPA),
-    away_EPA = -home_EPA,
-    ExpScoreDiff = score_diff + ep_before,
-    Win_Indicator = as.factor(ifelse(offense_play==winner,1,0)),
-    half = as.factor(half),
-    ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
-  )
-
-
 
 
 # Create the LOSO predictions for the selected nflscrapR model:
@@ -188,3 +114,26 @@ wp_cv_cal_error <- wp_cv_loso_calibration_results %>%
 # Overall weighted calibration error:
 with(wp_cv_cal_error, weighted.mean(weight_cal_error, n_wins))
 # 0.01309723
+
+
+## final calculations
+
+# library(parallel)
+# cl <- makeCluster(detectCores()-1)
+# 
+# 
+# wp_model <- mgcv::bam(Win_Indicator ~
+#                           s(ExpScoreDiff) +
+#                             s(TimeSecsRem, by = half) +
+#                             s(ExpScoreDiff_Time_Ratio) +
+#                             Under_two*off_timeouts_rem_before*half +
+#                             Under_two*def_timeouts_rem_before*half
+#                       data = epa_w, family = "binomial", cluster=cl)
+# 
+# stopCluster(cl)
+
+save(wp_model, file="data/wp_model.RData")
+
+load("wp_model.RData")
+library(mgcv)
+

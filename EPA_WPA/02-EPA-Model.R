@@ -301,7 +301,7 @@ for (i in 1:len) {
 }
 
 
-all_years_epa = lapply(all_years_epa,function(x){
+lapply(all_years_epa,function(x){
   year = unique(x$year)
   name = glue::glue("data/rds/EPA_FG_Calcs_{year}.RDS")
   print(name)
