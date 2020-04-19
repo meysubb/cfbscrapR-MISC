@@ -292,8 +292,7 @@ all_years_epa = lapply(all_years, function(x) {
   return(val)
 })
 
-
-len = length(all_years_epa)
+len = length(all_years)
 
 for (i in 1:len) {
   df = all_years_epa[[i]]
