@@ -271,12 +271,14 @@ prep_df_epa2 <- function(dat) {
       dat$new_TimeSecsRem[end_of_half_plays] <= 120
   }
   
-  #--Missing yd_line Plays--------------------------
-  
-  missing_yd_line = dat$new_yardline == 0
-  dat$new_yardline[missing_yd_line] = 99
-  dat$new_log_ydstogo[missing_yd_line] = log(99)
-  
+  # missed field goal needs to be here
+  # needs to go before the na check to set to 99
+  dat = dat %>% mutate(new_yardline = if_else(
+    is.na(new_yardline) &
+      play_type %in% c("Field Goal Missed", "Blocked Field Goal"),
+    100 - (yards_to_goal - 9),
+    new_yardline
+  ))
   
   #--General weird plays that don't have an easy fix----
   na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline >= 100) 
@@ -286,11 +288,15 @@ prep_df_epa2 <- function(dat) {
   dat$new_distance[neg_distance] = dat$distance[neg_distance+1]
   dat$new_log_ydstogo[neg_distance] = log(dat$new_distance[neg_distance])
   
+  #--Missing yd_line Plays--------------------------
+  missing_yd_line = dat$new_yardline == 0
+  dat$new_yardline[missing_yd_line] = 99
+  dat$new_log_ydstogo[missing_yd_line] = log(99)
+  
   
   
   dat = dat %>% 
-    mutate(new_down = as.factor(new_down),
-           new_yardline = ifelse(is.na(new_yardline)&play_type %in% c("Field Goal Missed","Blocked Field Goal"),100-(yards_to_goal-9),75)) %>%
+    mutate(new_down = as.factor(new_down)) %>%
     select(
       game_id,
       drive_id,
@@ -407,6 +413,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   })
   
   colnames(prep_df_after)[4:12] = paste0(colnames(prep_df_after)[4:12], "_end")
+  print("Begin join")
   pred_df = clean_pbp_dat %>% left_join(prep_df_after) %>% left_join(pred_df %>% select(id_play, drive_id, game_id, ep_before, ep_after))
   #pred_df$turnover = turnover_col
   ## kickoff plays
@@ -433,18 +440,14 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   pred_df[pred_df$play_type == "Safety", "ep_after"] = -2
   pred_df[pred_df$play_type == "Field Goal Good", "ep_after"] = 3
   
-  
-  
   pred_df = pred_df %>%
     mutate(EPA = ep_after - ep_before) %>%
-    select(-yard_line,-coef,-log_ydstogo_end, -Goal_To_Go_end) %>% select(
+    select(-yard_line,-log_ydstogo_end, -Goal_To_Go_end) %>% select(
       game_id,
       drive_id,
-      id,
+      id_play,
       offense,
-      offense_conference,
       defense,
-      defense_conference,
       home,
       away,
       period,

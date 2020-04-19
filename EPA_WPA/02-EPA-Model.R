@@ -50,7 +50,7 @@ pbp_no_OT <- pbp_full_df %>%
       distance >= yards_to_goal
     ),
     Under_two = TimeSecsRem <= 120,
-    id_play = as.numeric(id_play)
+    #id_play = as.numeric(id_play,digits=20)
   ) %>% filter(!is.na(game_id))
 
 # Create the LOSO predictions for the selected cfbscrapR model:
@@ -286,7 +286,6 @@ all_years = pbp_no_OT %>% split(pbp_no_OT$year)
 
 source("08-Pred-Utils.R")
 all_years_epa = lapply(all_years, function(x) {
-  browser()
   year = unique(x$year)
   print(year)
   val = calculate_epa_local(x,ep_model = ep_model,fg_model = fg_model)
