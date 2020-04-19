@@ -2,14 +2,16 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
-source("7-CV-Utils.R")
+source("07-CV-Utils.R")
 
-# epa_15 <- readRDS("data/rds/EPA_FG_Calcs_2015.RDS")
-# epa_16 <- readRDS("data/rds/EPA_FG_Calcs_2016.RDS")
-# epa_17 <- readRDS("data/rds/EPA_FG_Calcs_2017.RDS")
-# epa_18 <- readRDS("data/rds/EPA_FG_Calcs_2018.RDS")
+epa_14 <- readRDS("data/rds/EPA_FG_Calcs_2014.RDS")
+epa_15 <- readRDS("data/rds/EPA_FG_Calcs_2015.RDS")
+epa_16 <- readRDS("data/rds/EPA_FG_Calcs_2016.RDS")
+epa_17 <- readRDS("data/rds/EPA_FG_Calcs_2017.RDS")
+epa_18 <- readRDS("data/rds/EPA_FG_Calcs_2018.RDS")
+epa_19 <- readRDS("data/rds/EPA_FG_Calcs_2019.RDS")
 
-epa <- readRDS("data/ep_fg_model_data_loso.RDS")
+epa <- 
 
 ## Game ID
 ## to see who won?
