@@ -261,7 +261,6 @@ prep_df_epa2 <- function(dat) {
   
   
 #--General weird plays that don't have an easy fix----
-  #browser()
   na_yd_line = which(is.na(dat$new_yardline) | dat$new_yardline >= 100) 
   dat$new_yardline[na_yd_line] = dat$yard_line[na_yd_line+1]
   
@@ -291,8 +290,9 @@ prep_df_epa2 <- function(dat) {
       turnover
     ) %>% arrange(new_id_play)
   colnames(dat) = gsub("new_", "", colnames(dat))
-  colnames(dat)[8] <- "yards_to_goal"
   colnames(dat)[2] <- "new_id_play"
+  dat = dat %>% rename("yards_to_goal"="yardline")
+  
   
   return(dat)
 }
@@ -370,17 +370,15 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   })
   
   ## Prep for EP_after
-  prep_df_after = prep_df_epa2(clean_pbp_dat)
-  if (length(unique(clean_pbp_dat$game_id)) > 1) {
-    # if you are trying to deal with multiple games at once
-    # then you have to get the after individually.
-    prep_df_after = map_dfr(unique(clean_pbp_dat$game_id),
-                            function(x) {
-                              clean_pbp_dat %>%
-                                filter(game_id == x) %>%
-                                prep_df_epa2()
-                            })
-  }
+  ## always do this even if its just one game
+  # if you are trying to deal with multiple games at once
+  # then you have to get the after individually.
+  prep_df_after = map_dfr(unique(clean_pbp_dat$game_id),
+                          function(x) {
+                            clean_pbp_dat %>%
+                              filter(game_id == x) %>%
+                              prep_df_epa2()
+                          })
   print("Done with prep_df_epa2!")
   
   ep_end = predict(ep_model, prep_df_after, type = 'prob')

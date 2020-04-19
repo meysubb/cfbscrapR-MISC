@@ -280,12 +280,15 @@ fg_model <- mgcv::bam(scoring ~ s(yards_to_goal),
 saveRDS(fg_model,"models/final_fg_model.rds")
 save(fg_model,file="models/final_fg_model.RData")
 
+all_years = pbp_no_OT %>% split(pbp_no_OT$year)
+
 
 source("08-Pred-Utils.R")
 all_years_epa = lapply(all_years, function(x) {
+  browser()
   year = unique(x$year)
   print(year)
-  val = calculate_epa(x,extra_cols=F)
+  val = calculate_epa_local(x,ep_model = ep_model,fg_model = fg_model)
   return(val)
 })
 
