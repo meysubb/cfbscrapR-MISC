@@ -2,6 +2,7 @@ library(cfbscrapR)
 library(dplyr)
 library(readr)
 library(stringr)
+library(parallel)
 source("07-CV-Utils.R")
 source("08-Pred-Utils.R")
 
