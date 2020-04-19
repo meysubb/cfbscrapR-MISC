@@ -32,13 +32,14 @@ remove_plays <-
   )
 
 ## need to remove games with 
-pbp_no_OT <- pbp_full_df %>% filter(down > 0) %>%
+pbp_no_OT <- pbp_full_df %>% 
+  filter(down > 0) %>%
   filter(year>=2014) %>%   
   filter(!play_type %in% remove_plays) %>%
   filter(!is.na(down),!is.na(raw_secs)) %>%
   filter(!is.na(game_id)) %>%
   filter(log_ydstogo != -Inf) %>%
-  filter(down>0) %>% 
+  filter(game_id != 400603838) %>%
   rename(TimeSecsRem = raw_secs) %>%
   mutate(
     Next_Score = forcats::fct_relevel(factor(Next_Score), "No_Score"),
@@ -160,7 +161,7 @@ write.csv(ep_fg_model_loso_preds,"data/ep_fg_model_data_loso.csv",row.names=FALS
 # cross-validation calibration results:
 ep_fg_model_preds <- 
   cbind(Next_Score = ep_fg_model_loso_preds[,c("Next_Score")],
-            ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
+        ep_fg_model_loso_preds[,(ncol(ep_fg_model_loso_preds)-6):ncol(ep_fg_model_loso_preds)])
 ep_fg_cv_loso_calibration_results <- ep_fg_model_preds %>%
   # Create a row index column:
   mutate(play_index = 1:n()) %>%
@@ -238,7 +239,7 @@ final_pbp = pbp_no_OT %>% mutate(
   # 3 - combo of 1 and 2
   Total_W = Drive_Score_Dist_W + ScoreDiff_W,
   Total_W_Scaled = (Total_W - min(Total_W)) /
-    (max(Total_W) - min(Total_W)),
+    (max(Total_W) - min(Total_W))
 )
 
 ep_model <-
