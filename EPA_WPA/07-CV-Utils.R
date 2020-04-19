@@ -215,15 +215,15 @@ calc_ep_multinom_fg_loso_cv <-
                 # Subtract 5.065401 from TimeSecs since average time for FG att:
                 mutate(
                   TimeSecsRem = TimeSecsRem - 5.065401,
-                  # Correct the yrdline100:
+                  # Correct the yards_to_goal:
                   yards_to_goal = 100 - (yards_to_goal - 9),
-                  # Not GoalToGo:
+                  # Not Goal_To_Go:
                   Goal_To_Go = rep(FALSE, n()),
                   # Now first down:
                   down = rep("1", n()),
                   # 10 yards to go
                   log_ydstogo = rep(log(10), n()),
-                  # Create Under_TwoMinute_Warning indicator
+                  # Create Under_two indicator
                   Under_two = ifelse(TimeSecsRem < 120,
                                      TRUE, FALSE)
                 )
