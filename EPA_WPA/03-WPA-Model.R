@@ -105,6 +105,7 @@ wp_cv_loso_calibration_results %>%
         legend.text = element_text(size = 16),
         legend.position = "bottom") +
   facet_wrap(~ qtr, ncol = 4)
+ggsave("wp_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
 
 # Calculate the calibration error values:  
 wp_cv_cal_error <- wp_cv_loso_calibration_results %>% 
