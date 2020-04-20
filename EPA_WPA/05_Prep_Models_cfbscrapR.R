@@ -18,7 +18,7 @@ fg_model$offset <- NULL
 fg_model$residuals <- NULL
 fg_model$y <- NULL
 fg_model$na.action <- NULL
-fg_model$fitted.values <- NULL 
+fg_model$fitted.values <- NULL
 fg_model$working.weights <- NULL
 fg_model$prior.weights <- NULL
 fg_model$linear.predictors <- NULL
@@ -38,11 +38,11 @@ fg_model$R <- NULL
 fg_model$Ve <- NULL
 
 # Remove unused elements of WP model:
-wp_model$offset <- NULL 
+wp_model$offset <- NULL
 wp_model$residuals <- NULL
-wp_model$y <- NULL  
-wp_model$na.action <- NULL 
-wp_model$fitted.values <- NULL 
+wp_model$y <- NULL
+wp_model$na.action <- NULL
+wp_model$fitted.values <- NULL
 wp_model$working.weights <- NULL
 wp_model$prior.weights <- NULL
 wp_model$linear.predictors <- NULL
@@ -61,6 +61,6 @@ wp_model$control <- NULL
 wp_model$R <- NULL
 wp_model$Ve <- NULL
 
-# The following commented code is how the models are then included in nflscrapR:
-# devtools::use_data(current_fgxp_model, current_ep_model4, win_prob_model_epsd_bam, 
-#                    internal = TRUE, compress = "xz", overwrite = TRUE)
+# The following commented code is how the models are then included in cfbscrapR:
+devtools::use_data(fg_model, ep_model, wp_model,
+                   internal = TRUE, compress = "xz", overwrite = TRUE)
