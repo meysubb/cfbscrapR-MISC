@@ -51,7 +51,8 @@ for (i in 1:length(year_split)) {
     .x = year,
     .y = week,
     cfb_pbp_data,
-    season_type = 'both'
+    season_type = 'both',
+    epa_wpa = TRUE
   ))
   #Sys.sleep(5)
 }
@@ -219,6 +220,14 @@ pbp_full_df = pbp_full_df %>%
       (max(Total_W) - min(Total_W))
   )
 
+
+
+source("06-Data-Ingest-Utils.R")
+"\u00E9"
+# add_timeout_cols(pbp_full_df)
 pbp_full_TO_df <- add_timeout_cols(pbp_full_df)
+pbp_TO <- pbp_full_TO_df[pbp_full_TO_df$timeout_called == 1,]
+pbp_TO[pbp_TO$home_timeout==1&pbp_TO$away_timeout==1,]
+pbp_TO_neither <- pbp_TO[pbp_TO$home_timeout==0&pbp_TO$away_timeout==0,]
 
 saveRDS(pbp_full_TO_df, "data/pbp.RDS")
