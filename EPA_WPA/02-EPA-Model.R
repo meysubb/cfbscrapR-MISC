@@ -49,49 +49,49 @@ pbp_no_OT <- pbp_full_df %>%
       distance >= (yards_to_goal - 17),
       distance >= yards_to_goal
     ),
-    Under_two = TimeSecsRem <= 120
+    Under_two = TimeSecsRem <= 120,
     #id_play = as.numeric(id_play,digits=20)
   ) %>% filter(!is.na(game_id))
-#--------------------------------------------------------------------------------
-# # Create the LOSO predictions for the selected cfbscrapR model:
-# ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
-#                                                            TimeSecsRem + yards_to_goal + 
-#                                                            down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
-#                                                            yards_to_goal*down + Goal_To_Go*log_ydstogo + 
-#                                                            Under_two"),ep_model_data = pbp_no_OT)
-# 
-# # Save dataset in data folder as ep_model_loso_preds.csv
-# # (NOTE: this dataset is not pushed due to its size exceeding
-# # the github limit but will be referenced in other files)
-# write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
-# 
-# # Use the following pipeline to create a dataset used for charting the
-# # cross-validation calibration results:
-# ep_model_preds <- 
-#   cbind(Next_Score = ep_model_loso_preds[,c("Next_Score")],
-#         ep_model_loso_preds[,(ncol(ep_model_loso_preds)-6):ncol(ep_model_loso_preds)])
-# 
-# ep_cv_loso_calibration_results <- 
-#   ep_model_preds %>%
-#   # Create a row index column:
-#   mutate(play_index = 1:n()) %>%
-#   # Gather the columns for the different scoring event probabilities:
-#   gather(next_score_type, pred_prob, -Next_Score, -play_index) %>%
-#   # Create binned probability column:
-#   mutate(bin_pred_prob = round(pred_prob / 0.05) * .05) %>%
-#   # Group by both the next_score_type and bin_pred_prob:
-#   group_by(next_score_type, bin_pred_prob) %>%
-#   # Calculate the calibration results:
-#   summarize(n_plays = n(), 
-#             n_scoring_event = length(which(Next_Score == next_score_type)),
-#             bin_actual_prob = n_scoring_event / n_plays)
-# 
-# 
-# # Create a label data frame for the chart:
-# ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25), 
-#                        lab = c("More times\nthan expected", "Fewer times\nthan expected"),
-#                        next_score_type = factor("No Score (0)"))
-# 
+
+# Create the LOSO predictions for the selected cfbscrapR model:
+ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score ~ 
+                                                           TimeSecsRem + yards_to_goal + 
+                                                           down + log_ydstogo + Goal_To_Go + log_ydstogo*down + 
+                                                           yards_to_goal*down + Goal_To_Go*log_ydstogo + 
+                                                           Under_two"),ep_model_data = pbp_no_OT)
+
+# Save dataset in data folder as ep_model_loso_preds.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+write.csv(ep_model_loso_preds , "data/ep_model_loso_preds.csv", row.names = FALSE)
+
+# Use the following pipeline to create a dataset used for charting the
+# cross-validation calibration results:
+ep_model_preds <- 
+  cbind(Next_Score = ep_model_loso_preds[,c("Next_Score")],
+        ep_model_loso_preds[,(ncol(ep_model_loso_preds)-6):ncol(ep_model_loso_preds)])
+
+ep_cv_loso_calibration_results <- 
+  ep_model_preds %>%
+  # Create a row index column:
+  mutate(play_index = 1:n()) %>%
+  # Gather the columns for the different scoring event probabilities:
+  gather(next_score_type, pred_prob, -Next_Score, -play_index) %>%
+  # Create binned probability column:
+  mutate(bin_pred_prob = round(pred_prob / 0.05) * .05) %>%
+  # Group by both the next_score_type and bin_pred_prob:
+  group_by(next_score_type, bin_pred_prob) %>%
+  # Calculate the calibration results:
+  summarize(n_plays = n(), 
+            n_scoring_event = length(which(Next_Score == next_score_type)),
+            bin_actual_prob = n_scoring_event / n_plays)
+
+
+# Create a label data frame for the chart:
+ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25), 
+                       lab = c("More times\nthan expected", "Fewer times\nthan expected"),
+                       next_score_type = factor("No Score (0)"))
+
 # # Create the calibration chart:
 # ep_cv_loso_calibration_results %>%
 #   ungroup() %>%
@@ -131,19 +131,19 @@ pbp_no_OT <- pbp_full_df %>%
 #         legend.position = c(1, .05), legend.justification = c(1, 0)) +
 #   facet_wrap(~ next_score_type, ncol = 4)+
 #   ggsave("ep_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
-# 
-# # Calculate the calibration error values:  
-# cv_cal_error <- ep_cv_loso_calibration_results %>% 
-#   ungroup() %>%
-#   mutate(cal_diff = abs(bin_pred_prob - bin_actual_prob)) %>%
-#   group_by(next_score_type) %>% 
-#   summarize(weight_cal_error = weighted.mean(cal_diff, n_plays, na.rm = TRUE),
-#             n_scoring_event = sum(n_scoring_event, na.rm = TRUE))
-# 
-# # Overall weighted calibration error:
-# with(cv_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
-# # 0.01109719
-#--------------------------------------------------------------------------------
+
+# Calculate the calibration error values:  
+cv_cal_error <- ep_cv_loso_calibration_results %>% 
+  ungroup() %>%
+  mutate(cal_diff = abs(bin_pred_prob - bin_actual_prob)) %>%
+  group_by(next_score_type) %>% 
+  summarize(weight_cal_error = weighted.mean(cal_diff, n_plays, na.rm = TRUE),
+            n_scoring_event = sum(n_scoring_event, na.rm = TRUE))
+
+# Overall weighted calibration error:
+with(cv_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
+# 0.01109719
+
 # Create the LOSO predictions for the selected cfbscrapR models:
 ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~ 
                                                                  TimeSecsRem + 
@@ -296,13 +296,7 @@ len = length(all_years)
 
 for (i in 1:len) {
   df = all_years_epa[[i]]
-  year = unique(df$year)
-  filename = paste0("hist_",year,".png")
-  png(filename)
-  hist(df$EPA,main=paste("Histogram of ",year),
-       xlab = "EPA",ylab = "Frequency (Number of Plays)",
-       col = "green")
-  dev.off()
+  hist(df$EPA)
   Sys.sleep(5)
 }
 
