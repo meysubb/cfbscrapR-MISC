@@ -1,5 +1,5 @@
 # cfbscrapR-MISC
-Miscellaneous files for cfbscrapR (also includes work for EPA/WPA models)
+Miscellaneous files for [cfbscrapR](https://github.com/meysubb/cfbscrapR "cfbscrapR GitHub repository") (also includes work for EPA/WPA models)
 ## Contributors 
 - [Meyappan Subbaiah](https://github.com/meysubb "Meyappan's GitHub") ([@msubbaiah1](https://twitter.com/msubbaiah1?s=20 "Meyappan's Twitter"))
 - [Saiem Gilani](https://github.com/saiemgilani "Saiem's GitHub") ([@saiemgilani](https://twitter.com/SaiemGilani?s=20 "Saiem's Twitter"))
