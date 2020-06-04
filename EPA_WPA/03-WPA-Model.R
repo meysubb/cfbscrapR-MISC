@@ -56,7 +56,7 @@ wp_model_loso_preds <- calc_wp_gam_loso_cv(as.formula("Win_Indicator ~
 # (NOTE: this dataset is not pushed due to its size exceeding
 # the github limit but will be referenced in other files)
 write_csv(wp_model_loso_preds, "data/wp_model_loso_preds.csv")
-saveRDS(wp_model_loso_preds,"data/wp_model_data_loso.rds")
+saveRDS(wp_model_loso_preds,"data/rds/wp_model_data_loso.rds")
 
 
 # Use the following pipeline to create a dataset used for charting the
@@ -105,7 +105,7 @@ wp_cv_loso_calibration_results %>%
         legend.text = element_text(size = 16),
         legend.position = "bottom") +
   facet_wrap(~ qtr, ncol = 4)
-ggsave("wp_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
+ggsave("figures/wp_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
 
 # Calculate the calibration error values:  
 wp_cv_cal_error <- wp_cv_loso_calibration_results %>% 
