@@ -117,7 +117,7 @@ wp_cv_cal_error <- wp_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(wp_cv_cal_error, weighted.mean(weight_cal_error, n_wins))
-# 0.02502889
+# 0.02468438
 
 
 ## final calculations
