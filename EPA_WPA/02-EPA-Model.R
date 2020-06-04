@@ -130,7 +130,7 @@ pbp_no_OT <- pbp_full_df %>%
 #         legend.text = element_text(size = 16),
 #         legend.position = c(1, .05), legend.justification = c(1, 0)) +
 #   facet_wrap(~ next_score_type, ncol = 4)+
-#   ggsave("ep_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
+#   ggsave("figures/ep_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
 
 # # Calculate the calibration error values:  
 # cv_cal_error <- ep_cv_loso_calibration_results %>% 
@@ -215,7 +215,7 @@ ep_fg_cv_loso_calibration_results %>%
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5)) +
   facet_wrap(~ next_score_type, ncol = 3)+  
-  ggsave("ep_fg_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
+  ggsave("figures/ep_fg_cv_loso_calibration_results.png", height = 9/1.2, width = 16/1.2)
 
 
 # Calculate the calibration error values:  
@@ -295,14 +295,30 @@ all_years_epa = lapply(all_years, function(x) {
 })
 
 len = length(all_years)
-all_years_epa[[1]]$year[1]
+
 for (i in 1:len) {
   df = all_years_epa[[i]]
   year = df$year[1]
-  filename = glue::glue("histogram_epa_season_{year}.png")
+  filename = glue::glue("figures/histogram_epa_season_{year}.png")
+  plot_title = glue::glue("Histogram of EPA - {year} season")
   ggplot(df, aes(x=EPA))+
-    geom_histogram(color="darkblue", fill="lightblue",binwidth=1)+
-    ggsave(filename, height = 101.6, width = 152.4,units=c('mm'),type="cairo")
+    geom_histogram(color="darkblue", fill="lightblue", binwidth=1)+
+    labs(title=plot_title,subtitle="Data: @CFB_data with #cfbscrapR",
+         x = "Expected Points Added", y="Number of plays") +
+    theme(
+      axis.title.x = element_text(size = 10, margin=margin(0,0,0,0, unit=c("mm")), family = "Gill Sans MT", face = "bold"),
+      axis.text.x = element_text(size = 10, margin=margin(0,0,-0.1,0, unit=c("mm")), family = "Gill Sans MT"),
+      axis.title.y = element_text(size = 10, margin=margin(0,0,0,0, unit=c("mm")), family = "Gill Sans MT", face = "bold"),
+      axis.text.y = element_text(size = 10, margin=margin(0,0.1,0,0, unit=c("mm")), family = "Gill Sans MT"),
+      plot.title = element_text(size = 12, margin=margin(t=0, r=0, b=0.2,l=0, unit=c("mm")), lineheight=0.7, family = "Gill Sans MT", face = "bold"),
+      plot.subtitle = element_text(size = 10, margin=margin(t=0, r=0, b=0.2,l=0, unit=c("mm")), lineheight=0.7, family = "Gill Sans MT"),
+      plot.caption = element_text(size = 10, margin=margin(t=0, r=0, b=0,l=0, unit=c("mm")), lineheight=0.7, family = "Gill Sans MT"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "grey35",color="black"),
+      plot.background = element_rect(fill = "grey85",color="black"),
+      plot.margin=unit(c(1,2,1,3),"mm"))+
+    ggsave(filename, height = 101.6, width = 152.4, units=c('mm'), type="cairo")
   Sys.sleep(5)
 }
 
