@@ -4,11 +4,11 @@ wpa_plot_func <- function(dat,away_color,home_color,year,winner="home"){
   names(away_color) <- NULL
   names(home_color) <- NULL
 
-  plot_df <- dat %>% select(home_wp,away_wp,adj_TimeSecsRem)
-  dups = duplicated(plot_df$adj_TimeSecsRem)
+  plot_df <- dat %>% select(home_wp,away_wp,TimeSecsRem)
+  dups = duplicated(plot_df$TimeSecsRem)
   if(any(dups)){
     print("Warning. Time was not recorded properly for this PBP")
-    plot_df[dups,"adj_TimeSecsRem"] = plot_df[dups,"adj_TimeSecsRem"] - (cumsum(dups)*2 + 5)
+    plot_df[dups,"TimeSecsRem"] = plot_df[dups,"TimeSecsRem"] - (cumsum(dups)*2 + 5)
   }
 
   plot_df <- rbind(c(0.5,0.5,3600),plot_df)
@@ -18,10 +18,10 @@ wpa_plot_func <- function(dat,away_color,home_color,year,winner="home"){
   if(winner=="home"){
     plot_df <- rbind(c(1,0,0),plot_df)
   }
-  plot_df <- plot_df %>% gather(team,wp,-adj_TimeSecsRem)
+  plot_df <- plot_df %>% gather(team,wp,-TimeSecsRem)
 
 
-  p1 = ggplot(plot_df,aes(x=adj_TimeSecsRem,y=wp,color=team)) +
+  p1 = ggplot(plot_df,aes(x=TimeSecsRem,y=wp,color=team)) +
     geom_line(size=2) +
     geom_hline(yintercept = 0.5, color = "gray", linetype = "dashed") +
     scale_x_reverse(breaks = seq(0, 3600, 300)) +
