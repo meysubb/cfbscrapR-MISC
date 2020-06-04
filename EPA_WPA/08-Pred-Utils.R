@@ -549,18 +549,18 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   # join together multiple dataframes back together
   # to get ep_before and ep_after for plays
   colnames(prep_df_after)[4:12] = paste0(colnames(prep_df_after)[4:12], "_end")
+  
   print("Number of rows in pbp dataframe")
-  nrow(clean_pbp_dat)
-  print("Begin join")
+  print(nrow(clean_pbp_dat))
+  
   pred_df = clean_pbp_dat %>%
     left_join(prep_df_after) %>%
     left_join(
       pred_df %>% select(id_play, drive_id, game_id, ep_before)
-      
     )
-  summary(pred_df)
+
   print("Number of rows in post pred pbp dataframe (pred_df)")
-  nrow(pred_df)
+  print(nrow(pred_df))
   
   ## kickoff plays
   ## calculate EP before at kickoff as what happens if it was a touchback
