@@ -85,9 +85,7 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             # only necessary variables are the predicted probabilities
             # and the actual events):
             preds_ep <-
-              data.frame(predict(ep_model, newdata = test_data, type = "probs")) %>%
-              mutate(NSH = test_data$NSH,
-                     Next_Score = test_data$Next_Score)
+              data.frame(predict(ep_model, newdata = test_data, type = "probs"))
             
             test_preds_ep <- cbind(test_data, preds_ep)
             csvfn = glue::glue("data/EPA_Calcs_season_{x}.csv")
@@ -190,9 +188,7 @@ calc_ep_multinom_fg_loso_cv <-
               # and the actual events) from only using the ep_model
               preds_ep <- data.frame(predict(ep_model,
                                              newdata = test_data,
-                                             type = "probs")) %>%
-                mutate(NSH = test_data$NSH,
-                       Next_Score = test_data$Next_Score)
+                                             type = "probs")) 
               
               
               
