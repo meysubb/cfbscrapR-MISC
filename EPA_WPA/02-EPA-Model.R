@@ -25,7 +25,8 @@ remove_plays <-
     "End of Half",
     "End of Game",
     "Uncategorized",
-    "placeholder"
+    "placeholder",
+    "Penalty"	
     #"Kickoff",
     #"Kickoff Return (Offense)",
     #"Kickoff Return Touchdown"
