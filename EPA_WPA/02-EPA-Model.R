@@ -25,7 +25,8 @@ remove_plays <-
     "End of Half",
     "End of Game",
     "Uncategorized",
-    "placeholder"
+    "placeholder",
+    "Penalty"
     #"Kickoff",
     #"Kickoff Return (Offense)",
     #"Kickoff Return Touchdown"
@@ -343,6 +344,12 @@ all_years = pbp_no_OT %>% split(pbp_no_OT$year)
 
 
 source("08-Pred-Utils.R")
+
+final_pbp_epa <- calculate_epa_local(pbp_no_OT,ep_model = ep_model, fg_model = fg_model)
+# write.csv(final_pbp_epa, "data/final_pbp_epa.csv")
+unique(final_pbp_epa$play_type)
+summary(final_pbp_epa)
+
 all_years_epa = lapply(all_years, function(x) {
   year = unique(x$year)
   print(year)
