@@ -6,6 +6,8 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
   # Generate the predictions for each holdout season:
   map_dfr(seasons,
           function(x) {
+            
+            print(glue::glue("Working on data from {x}"))
             # Separate test and training data:
             test_data <- ep_model_data %>%
               filter(year == x)
@@ -90,6 +92,8 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             test_preds_ep <- cbind(test_data, preds_ep)
             csvfn = glue::glue("data/EPA_Calcs_season_{x}.csv")
             write.csv(test_preds_ep, csvfn, row.names = FALSE)
+            print(glue::glue("Finish training model for {x}"))
+            
             return(test_preds_ep)
             
           }) %>%
@@ -107,6 +111,7 @@ calc_ep_multinom_fg_loso_cv <-
     # Generate the predictions for each holdout season:
     map_dfr(seasons,
             function(x) {
+              print(glue::glue("Working on data from {x}"))
               # Separate test and training data:
               test_data <- ep_model_data %>%
                 filter(year == x)
@@ -261,6 +266,9 @@ calc_ep_multinom_fg_loso_cv <-
               
               csvfn = glue::glue("data/EPA_FG_Calcs_season_{x}.csv")
               write.csv(test_preds_ep, csvfn, row.names = FALSE)
+              
+              print(glue::glue("Finish training model for {x}"))
+              
               return(test_preds_ep)
               
             }) %>%
@@ -275,8 +283,10 @@ calc_wp_gam_loso_cv <- function(wp_formula, wp_model_data) {
   # Generate the predictions for each holdout season:
   map_dfr(seasons,
           function(x) {
-            # Separate test and training data:
+            
             print(glue::glue("Working on data from {x}"))
+            
+            # Separate test and training data:
             test_data <- wp_model_data %>%
               filter(year == x)
             train_data <- wp_model_data %>%
@@ -290,6 +300,7 @@ calc_wp_gam_loso_cv <- function(wp_formula, wp_model_data) {
               bam(wp_formula, data = train_data, family = "binomial", cluster = cl)
             
             print(glue::glue("Finish training model for {x}"))
+            
             stopCluster(cl)
             # Generate and return prediction dataset (can add columns to
             # return from the test_data in the mutate function below but
