@@ -313,6 +313,138 @@ add_timeout_cols <- function(play_df) {
   return(pbp_df)
 }
 
+add_play_counts <- function(play_df){
+  ##--Play type vectors------
+  punt = c(
+    "Blocked Punt",
+    "Blocked Punt Touchdown",
+    "Punt",
+    "Punt Touchdown",
+    "Punt Return Touchdown"
+  )
+  kickoff = c(
+    "Kickoff",
+    "Kickoff Return (Offense)",
+    "Kickoff Return Touchdown",
+    "Kickoff Touchdown"
+  )
+  field_goal = c(
+    "Blocked Field Goal",
+    "Blocked Field Goal Touchdown",
+    "Field Goal Missed",
+    "Missed Field Goal Return",
+    "Missed Field Goal Return Touchdown"
+  )
+  ## add play counts for passes, rushes, punts, kicks, kickoffs, 
+  ## for home offense/defense/special teams
+  play_df <- play_df %>% 
+    mutate(
+      home_offense = ifelse(offense_play == home_team,TRUE,FALSE),
+      pass = if_else(
+        play_type == "Pass Reception" |
+        play_type == "Pass Completion" |
+        play_type == "Passing Touchdown" |
+        play_type == "Sack" |
+        play_type == "Pass Interception Return" |
+        play_type == "Pass Incompletion" |
+        play_type == "Sack Touchdown" |
+        (play_type == "Safety" &
+           str_detect(play_text, "sacked")) |
+        (
+          play_type == "Fumble Recovery (Own)" &
+            str_detect(play_text, "pass")
+        ) |
+        (
+          play_type == "Fumble Recovery (Opponent)" &
+            str_detect(play_text, "pass")
+        ),
+        1,
+        0
+      ),
+      rush = ifelse(
+        play_type == "Rush" | 
+        play_type == "Rushing Touchdown" |
+        (play_type == "Safety" &
+           str_detect(play_text, "run")) |
+        (
+          play_type == "Fumble Recovery (Opponent)" &
+            str_detect(play_text, "run")
+        ) |
+        (
+          play_type == "Fumble Recovery (Own)" &
+            str_detect(play_text, "run")
+        ),
+        1,
+        0
+      ),
+      home_offense_p = ifelse(home_offense,1,0),
+      home_offense_pass_p = ifelse(home_offense & pass,1,0),
+      home_offense_rush_p = ifelse(home_offense & rush,1,0),
+      away_offense_p = ifelse(!home_offense,1,0),
+      away_offense_pass_p = ifelse(!home_offense & pass,1,0),
+      away_offense_rush_p = ifelse(!home_offense & rush,1,0),
+      home_defense_p = away_offense_p,
+      home_defense_pass_p = away_offense_pass_p,
+      home_defense_rush_p = away_offense_rush_p,
+      away_defense_p = home_offense_p,
+      away_defense_pass_p = home_offense_pass_p,
+      away_defense_rush_p = home_offense_rush_p,
+      home_SP_punt_off_p = ifelse(home_offense & (play_type %in% punt),1,0),
+      away_SP_punt_off_p = ifelse(!home_offense & (play_type %in% punt),1,0),
+      home_SP_fg_off_p = ifelse(home_offense & (play_type %in% field_goal),1,0),
+      away_SP_fg_off_p = ifelse(!home_offense & (play_type %in% field_goal),1,0), 
+      home_SP_ko_off_p = ifelse(home_offense & (play_type %in% kickoff),1,0),
+      away_SP_ko_off_p = ifelse(!home_offense & (play_type %in% kickoff),1,0),
+      home_SP_punt_def_p = away_SP_punt_off_p,
+      away_SP_punt_def_p = home_SP_punt_off_p,
+      home_SP_fg_def_p = away_SP_fg_off_p,
+      away_SP_fg_def_p = home_SP_fg_off_p, 
+      home_SP_ko_def_p = away_SP_ko_off_p,
+      away_SP_ko_def_p = away_SP_ko_off_p 
+    ) %>% group_by(game_id) %>%
+    mutate(
+      home_offense_plays = cumsum(home_offense_p),
+      home_offense_pass_plays = cumsum(home_offense_pass_p),
+      home_offense_rush_plays = cumsum(home_offense_rush_p),
+      away_offense_plays = cumsum(away_offense_p),
+      away_offense_pass_plays = cumsum(away_offense_pass_p),
+      away_offense_rush_plays = cumsum(away_offense_rush_p),
+      home_defense_plays = cumsum(home_defense_p),
+      home_defense_pass_plays = cumsum(home_defense_pass_p),
+      home_defense_rush_plays = cumsum(home_defense_rush_p),
+      away_defense_plays = cumsum(away_defense_p),
+      away_defense_pass_plays = cumsum(away_defense_pass_p),
+      away_defense_rush_plays = cumsum(away_defense_rush_p),
+      home_SP_punt_off_plays = cumsum(home_SP_punt_off_p),
+      away_SP_punt_off_plays = cumsum(away_SP_punt_off_p),
+      home_SP_fg_off_p = cumsum(home_SP_fg_off_p),
+      away_SP_fg_off_p = cumsum(away_SP_fg_off_p), 
+      home_SP_ko_off_p = cumsum(home_SP_ko_off_p),
+      away_SP_ko_off_p = cumsum(away_SP_ko_off_p),
+      home_SP_punt_def_plays = cumsum(home_SP_punt_def_p),
+      away_SP_punt_def_plays = cumsum(away_SP_punt_def_p),
+      home_SP_fg_def_p = cumsum(home_SP_fg_def_p),
+      away_SP_fg_def_p = cumsum(away_SP_fg_def_p), 
+      home_SP_ko_def_p = cumsum(home_SP_ko_def_p),
+      away_SP_ko_def_p = cumsum(away_SP_ko_def_p)    
+    ) %>% group_by(game_id, drive_id) %>%
+    mutate(
+      home_offense_drive_plays = cumsum(home_offense_p),
+      home_offense_drive_pass_plays = cumsum(home_offense_pass_p),
+      home_offense_drive_rush_plays = cumsum(home_offense_rush_p),
+      away_offense_drive_plays = cumsum(away_offense_p),
+      away_offense_drive_pass_plays = cumsum(away_offense_pass_p),
+      away_offense_drive_rush_plays = cumsum(away_offense_rush_p),
+      home_defense_drive_plays = cumsum(home_defense_p),
+      home_defense_drive_pass_plays = cumsum(home_defense_pass_p),
+      home_defense_drive_rush_plays = cumsum(home_defense_rush_p),
+      away_defense_drive_plays = cumsum(away_defense_p),
+      away_defense_drive_pass_plays = cumsum(away_defense_pass_p),
+      away_defense_drive_rush_plays = cumsum(away_defense_rush_p)
+    ) %>% ungroup() 
+    
+  return(play_df)
+}
 #-----------------------------------    
     # str_detect(str_to_lower(pbp_full_df_double$home),paste0("^",pbp_full_df_double$timeout_team,"$"))
     
