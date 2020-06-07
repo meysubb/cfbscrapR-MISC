@@ -9,10 +9,10 @@ find_game_next_score_half <- function(drive_df){
   drive_df$drive_id <- as.numeric(drive_df$drive_id)
   drive_df = drive_df %>% arrange(drive_id)
   score_plays <- which(drive_df$scoring == TRUE & !str_detect(drive_df$drive_result,"END OF"))
-
+  
   final_df = lapply(1:nrow(drive_df),find_next_score,
                     score_plays_i = score_plays,dat_drive=drive_df) %>% bind_rows()
-
+  
   final_df2 = cbind(drive_df,final_df)
   return(final_df2)
 }
@@ -20,30 +20,30 @@ find_game_next_score_half <- function(drive_df){
 find_next_score <- function(play_i,score_plays_i,dat_drive){
   defense_tds <- c("PUNT RETURN TD","FUMBLE TD")
   next_score_i <- score_plays_i[which(score_plays_i >= play_i)[1]]
-
+  
   if( is.na(next_score_i) |
       dat_drive$start_period[play_i] <= 2 & dat_drive$start_period[next_score_i] %in% c(3,4) |
       dat_drive$start_period[play_i] %in% c(3,4) & dat_drive$start_period[next_score_i] > 4){
-
+    
     score_drive <- dat_drive$drive_id[play_i]
     next_score <- 0
     return(data.frame(NSH = next_score,
                       DSH = score_drive))
   } else{
-
+    
     score_drive <- dat_drive$drive_id[next_score_i]
     # Identify current and next score teams
     # if they are the same then you are good
     # if it is different then flip the negative sign
     current_team <- dat_drive$offense[play_i]
-
+    
     ## If the defense scores
     ## we need to make sure the next_score_team is correct
     next_score_team <- dat_drive$offense[next_score_i]
     if(dat_drive$drive_result[next_score_i] %in% defense_tds){
       next_score_team <- dat_drive$defense[next_score_i]
     }
-
+    
     if(str_detect(dat_drive$drive_result[next_score_i],"RETURN TD")){
       if( identical(current_team,next_score_team)){
         next_score <- -1 * dat_drive$pts_drive[next_score_i]
@@ -63,17 +63,73 @@ find_next_score <- function(play_i,score_plays_i,dat_drive){
                       DSH = score_drive))
   }
 }
+# fix_tds <function(){}
 
-add_timeout_cols <- function(play_df){
+add_penalty_cols <- function(raw_df){
+  #-- penalty in play text----
+  pen_text = str_detect(raw_df$play_text, "Penalty|penalty|PENALTY")
+  #-- declined in play text----
+  pen_declined_text = str_detect(raw_df$play_text,"declined|Declined|DECLINED")
+  #--no play in play text----
+  pen_no_play_text = str_detect(raw_df$play_text,"no play|No Play|NO PLAY")
+  #--off-setting in play text----
+  pen_offset_text = str_detect(raw_df$play_text,"off-setting")|
+    str_detect(raw_df$play_text,"Off-Setting")|
+    str_detect(raw_df$play_text,"OFF-SETTING")
+  #--off-setting in play text----
+  pen_1st_down_text = str_detect(raw_df$play_text,"1st down")|
+    str_detect(raw_df$play_text,"1st Down")|
+    str_detect(raw_df$play_text,"1st DOWN")|
+    str_detect(raw_df$play_text,"1ST Down")|
+    str_detect(raw_df$play_text,"1ST down")|
+    str_detect(raw_df$play_text,"1ST DOWN")
+  
+  #-- penalty play_types
+  pen_type = raw_df$play_type == "Penalty"|raw_df$play_type == "penalty"
+  
+  #-- penalty_flag T/F flag conditions
+  raw_df$penalty_flag = F
+  raw_df$penalty_flag[pen_type] <- T
+  raw_df$penalty_flag[pen_text] <- T
+  
+  #-- penalty_declined T/F flag conditions
+  raw_df$penalty_declined = F
+  raw_df$penalty_declined[pen_text & pen_declined_text] <- T
+  raw_df$penalty_declined[pen_type & pen_declined_text] <- T
+  
+  #-- penalty_no_play T/F flag conditions
+  raw_df$penalty_no_play = F
+  raw_df$penalty_no_play[pen_text & pen_no_play_text] <- T
+  raw_df$penalty_no_play[pen_type & pen_no_play_text] <- T
+  
+  #-- penalty_offset T/F flag conditions
+  raw_df$penalty_offset = F
+  raw_df$penalty_offset[pen_text & pen_offset_text] <- T
+  raw_df$penalty_offset[pen_type & pen_offset_text] <- T
+  #-- penalty_1st_conv T/F flag conditions
+  raw_df$penalty_1st_conv = F
+  raw_df$penalty_1st_conv[pen_text & pen_1st_down_text] <- T
+  raw_df$penalty_1st_conv[pen_type & pen_1st_down_text] <- T
+  
+  
+  return(raw_df)
+}
+
+add_timeout_cols <- function(play_df) {
   pbp_df <- play_df %>%
     group_by(game_id, half) %>%
-    arrange(desc(year),id_play) %>%
+    arrange(id_play) %>%
     mutate(
-      timeout_called = ifelse(play_type %in% c("Timeout"),1,0),
-      timeout_team = ifelse(play_type %in% c("Timeout"),
-                            ifelse(!is.na(str_extract(play_text, "timeout (.+)")),
-                                   str_extract(play_text, "timeout (.+)"),
-                                   str_extract(play_text, "Timeout (.+)")), NA)
+      timeout_called = ifelse(play_type %in% c("Timeout"), 1, 0),
+      timeout_team = ifelse(
+        play_type %in% c("Timeout"),
+        ifelse(
+          !is.na(str_extract(play_text, "timeout (.+)")),
+          str_extract(play_text, "timeout (.+)"),
+          str_extract(play_text, "Timeout (.+)")
+        ),
+        NA
+      )
     ) %>%
     mutate(timeout_team = str_remove(timeout_team, ",(.+)")) %>%
     mutate(
@@ -174,11 +230,16 @@ add_timeout_cols <- function(play_df){
         timeout_team == "wmu" ~ "western michigan",
         timeout_team == "wsu" ~ "washington state",
         timeout_team == "wyoming cowboys" ~ "wyoming",
-        TRUE~timeout_team),
-      home_timeout = ifelse(is.na(timeout_team),0,
-                            ifelse(str_detect(str_to_lower(home),fixed(timeout_team))==TRUE,1,0)), 
-      away_timeout = ifelse(is.na(timeout_team),0,
-                            ifelse(str_detect(str_to_lower(away),fixed(timeout_team))==TRUE,1,0)),
+        TRUE ~ timeout_team
+      ),
+      home_timeout = ifelse(is.na(timeout_team), 0,
+                            ifelse(
+                              str_detect(str_to_lower(home), fixed(timeout_team)) == TRUE, 1, 0
+                            )),
+      away_timeout = ifelse(is.na(timeout_team), 0,
+                            ifelse(
+                              str_detect(str_to_lower(away), fixed(timeout_team)) == TRUE, 1, 0
+                            )),
       off_timeouts_rem_before = NA,
       def_timeouts_rem_before = NA,
       off_timeouts_rem_after = NA,
@@ -189,33 +250,201 @@ add_timeout_cols <- function(play_df){
       away_timeouts_rem_after = NA
     ) %>%
     mutate(
-      home_timeout = 
-        case_when(timeout_called ==1 & home_timeout==1 & away_timeout==1 ~
-                    ifelse(is.na(timeout_team),0,
-                           ifelse(str_detect(str_to_lower(home),
-                                             paste0("^",timeout_team,"$"))==TRUE,1,0)),TRUE~ home_timeout),
-      away_timeout = 
-        case_when(timeout_called ==1 & home_timeout==1 & away_timeout==1 ~
-                    ifelse(is.na(timeout_team),0,
-                           ifelse(str_detect(str_to_lower(away),
-                                             paste0("^",timeout_team,"$"))==TRUE,1,0)),TRUE~ away_timeout)
+      home_timeout =
+        case_when(
+          timeout_called == 1 & home_timeout == 1 & away_timeout == 1 ~
+            ifelse(is.na(timeout_team), 0,
+                   ifelse(
+                     str_detect(str_to_lower(home),
+                                paste0("^", timeout_team, "$")) ==
+                       TRUE, 1, 0
+                   )),
+          TRUE ~ home_timeout
+        ),
+      away_timeout =
+        case_when(
+          timeout_called == 1 & home_timeout == 1 & away_timeout == 1 ~
+            ifelse(is.na(timeout_team), 0,
+                   ifelse(
+                     str_detect(str_to_lower(away),
+                                paste0("^", timeout_team, "$")) ==
+                       TRUE, 1, 0
+                   )),
+          TRUE ~ away_timeout
+        )
     ) %>%
     mutate(
       home_timeouts_rem_after = 3 - cumsum(home_timeout),
       away_timeouts_rem_after = 3 - cumsum(away_timeout),
-      home_timeouts_rem_before = ifelse(!is.na(lag(home_timeouts_rem_after,order_by = id_play)),
-                                        lag(home_timeouts_rem_after,order_by = id_play),3),
-      away_timeouts_rem_before = ifelse(!is.na(lag(away_timeouts_rem_after,order_by = id_play)),
-                                        lag(away_timeouts_rem_after,order_by = id_play),3),
-      off_timeouts_rem_after = ifelse(offense_play==home,home_timeouts_rem_after,away_timeouts_rem_after),
-      def_timeouts_rem_after = ifelse(defense_play==home,home_timeouts_rem_after,away_timeouts_rem_after),
-      off_timeouts_rem_before = ifelse(offense_play==home,home_timeouts_rem_before,away_timeouts_rem_before),
-      def_timeouts_rem_before = ifelse(defense_play==home,home_timeouts_rem_before,away_timeouts_rem_before)
+      home_timeouts_rem_before = ifelse(
+        !is.na(lag(home_timeouts_rem_after, order_by = id_play)),
+        lag(home_timeouts_rem_after, order_by = id_play),
+        3
+      ),
+      away_timeouts_rem_before = ifelse(
+        !is.na(lag(away_timeouts_rem_after, order_by = id_play)),
+        lag(away_timeouts_rem_after, order_by = id_play),
+        3
+      ),
+      off_timeouts_rem_after = ifelse(
+        offense_play == home,
+        home_timeouts_rem_after,
+        away_timeouts_rem_after
+      ),
+      def_timeouts_rem_after = ifelse(
+        defense_play == home,
+        home_timeouts_rem_after,
+        away_timeouts_rem_after
+      ),
+      off_timeouts_rem_before = ifelse(
+        offense_play == home,
+        home_timeouts_rem_before,
+        away_timeouts_rem_before
+      ),
+      def_timeouts_rem_before = ifelse(
+        defense_play == home,
+        home_timeouts_rem_before,
+        away_timeouts_rem_before
+      )
     ) %>% ungroup()
   
-    
+  
+  
+  return(pbp_df)
+}
 
-    return(pbp_df)
+add_play_counts <- function(play_df){
+  ##--Play type vectors------
+  punt = c(
+    "Blocked Punt",
+    "Blocked Punt Touchdown",
+    "Punt",
+    "Punt Touchdown",
+    "Punt Return Touchdown"
+  )
+  kickoff = c(
+    "Kickoff",
+    "Kickoff Return (Offense)",
+    "Kickoff Return Touchdown",
+    "Kickoff Touchdown"
+  )
+  field_goal = c(
+    "Blocked Field Goal",
+    "Blocked Field Goal Touchdown",
+    "Field Goal Missed",
+    "Missed Field Goal Return",
+    "Missed Field Goal Return Touchdown"
+  )
+  ## add play counts for passes, rushes, punts, kicks, kickoffs, 
+  ## for home offense/defense/special teams
+  play_df <- play_df %>% 
+    mutate(
+      home_offense = ifelse(offense_play == home_team,TRUE,FALSE),
+      pass = if_else(
+        play_type == "Pass Reception" |
+        play_type == "Pass Completion" |
+        play_type == "Passing Touchdown" |
+        play_type == "Sack" |
+        play_type == "Pass Interception Return" |
+        play_type == "Pass Incompletion" |
+        play_type == "Sack Touchdown" |
+        (play_type == "Safety" &
+           str_detect(play_text, "sacked")) |
+        (
+          play_type == "Fumble Recovery (Own)" &
+            str_detect(play_text, "pass")
+        ) |
+        (
+          play_type == "Fumble Recovery (Opponent)" &
+            str_detect(play_text, "pass")
+        ),
+        1,
+        0
+      ),
+      rush = ifelse(
+        play_type == "Rush" | 
+        play_type == "Rushing Touchdown" |
+        (play_type == "Safety" &
+           str_detect(play_text, "run")) |
+        (
+          play_type == "Fumble Recovery (Opponent)" &
+            str_detect(play_text, "run")
+        ) |
+        (
+          play_type == "Fumble Recovery (Own)" &
+            str_detect(play_text, "run")
+        ),
+        1,
+        0
+      ),
+      home_offense_p = ifelse(home_offense,1,0),
+      home_offense_pass_p = ifelse(home_offense & pass,1,0),
+      home_offense_rush_p = ifelse(home_offense & rush,1,0),
+      away_offense_p = ifelse(!home_offense,1,0),
+      away_offense_pass_p = ifelse(!home_offense & pass,1,0),
+      away_offense_rush_p = ifelse(!home_offense & rush,1,0),
+      home_defense_p = away_offense_p,
+      home_defense_pass_p = away_offense_pass_p,
+      home_defense_rush_p = away_offense_rush_p,
+      away_defense_p = home_offense_p,
+      away_defense_pass_p = home_offense_pass_p,
+      away_defense_rush_p = home_offense_rush_p,
+      home_SP_punt_off_p = ifelse(home_offense & (play_type %in% punt),1,0),
+      away_SP_punt_off_p = ifelse(!home_offense & (play_type %in% punt),1,0),
+      home_SP_fg_off_p = ifelse(home_offense & (play_type %in% field_goal),1,0),
+      away_SP_fg_off_p = ifelse(!home_offense & (play_type %in% field_goal),1,0), 
+      home_SP_ko_off_p = ifelse(home_offense & (play_type %in% kickoff),1,0),
+      away_SP_ko_off_p = ifelse(!home_offense & (play_type %in% kickoff),1,0),
+      home_SP_punt_def_p = away_SP_punt_off_p,
+      away_SP_punt_def_p = home_SP_punt_off_p,
+      home_SP_fg_def_p = away_SP_fg_off_p,
+      away_SP_fg_def_p = home_SP_fg_off_p, 
+      home_SP_ko_def_p = away_SP_ko_off_p,
+      away_SP_ko_def_p = away_SP_ko_off_p 
+    ) %>% group_by(game_id) %>%
+    mutate(
+      home_offense_plays = cumsum(home_offense_p),
+      home_offense_pass_plays = cumsum(home_offense_pass_p),
+      home_offense_rush_plays = cumsum(home_offense_rush_p),
+      away_offense_plays = cumsum(away_offense_p),
+      away_offense_pass_plays = cumsum(away_offense_pass_p),
+      away_offense_rush_plays = cumsum(away_offense_rush_p),
+      home_defense_plays = cumsum(home_defense_p),
+      home_defense_pass_plays = cumsum(home_defense_pass_p),
+      home_defense_rush_plays = cumsum(home_defense_rush_p),
+      away_defense_plays = cumsum(away_defense_p),
+      away_defense_pass_plays = cumsum(away_defense_pass_p),
+      away_defense_rush_plays = cumsum(away_defense_rush_p),
+      home_SP_punt_off_plays = cumsum(home_SP_punt_off_p),
+      away_SP_punt_off_plays = cumsum(away_SP_punt_off_p),
+      home_SP_fg_off_p = cumsum(home_SP_fg_off_p),
+      away_SP_fg_off_p = cumsum(away_SP_fg_off_p), 
+      home_SP_ko_off_p = cumsum(home_SP_ko_off_p),
+      away_SP_ko_off_p = cumsum(away_SP_ko_off_p),
+      home_SP_punt_def_plays = cumsum(home_SP_punt_def_p),
+      away_SP_punt_def_plays = cumsum(away_SP_punt_def_p),
+      home_SP_fg_def_p = cumsum(home_SP_fg_def_p),
+      away_SP_fg_def_p = cumsum(away_SP_fg_def_p), 
+      home_SP_ko_def_p = cumsum(home_SP_ko_def_p),
+      away_SP_ko_def_p = cumsum(away_SP_ko_def_p)    
+    ) %>% group_by(game_id, drive_id) %>%
+    mutate(
+      home_offense_drive_plays = cumsum(home_offense_p),
+      home_offense_drive_pass_plays = cumsum(home_offense_pass_p),
+      home_offense_drive_rush_plays = cumsum(home_offense_rush_p),
+      away_offense_drive_plays = cumsum(away_offense_p),
+      away_offense_drive_pass_plays = cumsum(away_offense_pass_p),
+      away_offense_drive_rush_plays = cumsum(away_offense_rush_p),
+      home_defense_drive_plays = cumsum(home_defense_p),
+      home_defense_drive_pass_plays = cumsum(home_defense_pass_p),
+      home_defense_drive_rush_plays = cumsum(home_defense_rush_p),
+      away_defense_drive_plays = cumsum(away_defense_p),
+      away_defense_drive_pass_plays = cumsum(away_defense_pass_p),
+      away_defense_drive_rush_plays = cumsum(away_defense_rush_p)
+    ) %>% ungroup() 
+    
+  return(play_df)
+}
 #-----------------------------------    
     # str_detect(str_to_lower(pbp_full_df_double$home),paste0("^",pbp_full_df_double$timeout_team,"$"))
     
@@ -247,4 +476,5 @@ add_timeout_cols <- function(play_df){
     #                 
     #               )
 #-------    
-}
+
+

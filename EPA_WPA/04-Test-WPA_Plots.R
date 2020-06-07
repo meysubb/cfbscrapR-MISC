@@ -1,3 +1,4 @@
+source("../plotting_funcs/2_wpa_plot.R")
 sc_ga <- df %>% filter(
   year == 2019,
   offense_play %in% c("Georgia","South Carolina"),
