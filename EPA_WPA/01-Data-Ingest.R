@@ -268,4 +268,6 @@ pbp_full_df = pbp_full_df %>%
 # add timeout columns
 pbp_full_TO_df <- add_timeout_cols(pbp_full_df)
 
-saveRDS(pbp_full_TO_df, "data/pbp.RDS")
+pbp_full_counts_df <- add_play_counts(pbp_full_TO_df)
+
+saveRDS(pbp_full_counts_df, "data/pbp.RDS")
