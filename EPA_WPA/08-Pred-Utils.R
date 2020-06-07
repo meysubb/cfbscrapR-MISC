@@ -14,11 +14,11 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
   make_fg_prob <- mgcv::predict.bam(fg_mod, newdata = fg_dat,
                                     type = "response")
   
-  fg_dat<- fg_dat %>%
+  fg_miss_dat<- fg_dat %>%
     # Subtract 5.065401 from TimeSecs since average time for FG att:
     mutate(
       TimeSecsRem = TimeSecsRem - 5.065401,
-      # Correct the yrdline100:
+      # Correct the yards_to_goal:
       yards_to_goal = 100 - (yards_to_goal - 9),
       # Not GoalToGo:
       Goal_To_Go = rep(FALSE, n()),
@@ -28,8 +28,12 @@ epa_fg_probs <- function(dat, current_probs, fg_mod) {
       log_ydstogo = rep(log(10), n()),
       # Create Under_TwoMinute_Warning indicator
       Under_two = ifelse(TimeSecsRem < 120,
-                         TRUE, FALSE)
+                         TRUE, FALSE),
+      home_offense = !home_offense
     )
+  fg_miss_opponent_probs <-  as.data.frame(predict(ep_model,
+                                                   fg_miss_dat,
+                                                   type="prob"))
   # add in the fg make prob into this
   current_probs2 <- current_probs
   #current_probs2[fg_ind,] <- current_probs[fg_ind,] * (1-make_fg_prob)
@@ -362,7 +366,10 @@ prep_df_epa2 <- function(dat) {
   dat$new_log_ydstogo[missing_yd_line] = log(99)
   
   dat = dat %>%
-    mutate(new_down = as.factor(new_down)) %>%
+    mutate(new_down = as.factor(new_down),
+           new_home_offense = ifelse(turnover == 1, 
+                                     !home_offense,
+                                     home_offense)) %>%
     select(
       game_id,
       drive_id,
@@ -374,10 +381,10 @@ prep_df_epa2 <- function(dat) {
       new_log_ydstogo,
       new_Goal_To_Go,
       new_Under_two,
+      new_home_offense,
       end_half_game,
       turnover
     ) %>% arrange(id_play) 
-  
   colnames(dat) = gsub("new_", "", colnames(dat))
   # colnames(dat)[3] <- "new_id"
   dat = dat %>% 
@@ -509,7 +516,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     log_ydstogo,
     Under_two,
     Goal_To_Go,
-    turnover
+    turnover,
+    home_offense
   )
   
   # ep_start
@@ -548,7 +556,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   
   # join together multiple dataframes back together
   # to get ep_before and ep_after for plays
-  colnames(prep_df_after)[4:12] = paste0(colnames(prep_df_after)[4:12], "_end")
+  colnames(prep_df_after)[4:13] = paste0(colnames(prep_df_after)[4:13], "_end")
   
   print("Number of rows in pbp dataframe")
   print(nrow(clean_pbp_dat))
@@ -572,6 +580,7 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
     new_kick["distance"] = 10
     new_kick["yards_to_goal"] = 75
     new_kick["log_ydstogo"] = log(10)
+    new_kick["home_offense"] = !pred_df[kickoff_ind,"home_offense"]
     ep_kickoffs = as.data.frame(predict(ep_model, new_kick, type = 'prob'))
     if(table(kickoff_ind)[2] > 1){
       pred_df[kickoff_ind,"ep_before"] = apply(ep_kickoffs,1,function(row){
@@ -597,6 +606,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   ## scoring plays from here on out
   pred_df[(pred_df$play_type %in% offense_score_vec), "ep_after"] = 7
   pred_df[(pred_df$play_type %in% defense_score_vec), "ep_after"] = -7
+  pred_df[pred_df$play_type == "Defensive 2pt Conversion", "ep_before"] = 1
+  pred_df[pred_df$play_type == "Defensive 2pt Conversion", "ep_after"] = -2
   pred_df[pred_df$play_type == "Safety", "ep_after"] = -2
   pred_df[pred_df$play_type == "Field Goal Good", "ep_after"] = 3
   
@@ -634,12 +645,14 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
              down,
              distance,
              Goal_To_Go,
+             home_offense,
              yards_to_goal,
              yards_gained,
              TimeSecsRem_end,
              down_end,
              distance_end,
              yards_to_goal_end,
+             home_offense_end,
              everything()
            ) %>%
     mutate(
@@ -706,17 +719,20 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
 
 create_wpa <- function(df,wp_mod){
   Off_Win_Prob = as.vector(predict(wp_mod,newdata=df,type="response"))
-  df2 = df %>% mutate(
-    wp = Off_Win_Prob,
-    def_wp = 1-wp,
-    home_wp = if_else(offense_play == home,
-                      wp,def_wp),
-    away_wp = if_else(offense_play != home,
-                      wp,def_wp)) %>% group_by(half) %>%
+  df2 = df %>% 
+    mutate(
+      wp = Off_Win_Prob,
+      def_wp = 1-wp,
+      home_wp = if_else(offense_play == home,
+                        wp, def_wp),
+      away_wp = if_else(offense_play != home,
+                        wp, def_wp)
+    ) %>% group_by(half) %>%
     mutate(
       # ball changes hand
       change_of_poss = ifelse(offense_play == lead(offense_play), 0, 1),
-      change_of_poss = ifelse(is.na(change_of_poss), 0, change_of_poss)) %>% ungroup() %>%
+      change_of_poss = ifelse(is.na(change_of_poss), 0, change_of_poss)
+    ) %>% ungroup() %>%
     mutate(
       # base wpa
       end_of_half = ifelse(half == lead(half),0,1),
