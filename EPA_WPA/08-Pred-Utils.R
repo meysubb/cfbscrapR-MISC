@@ -606,6 +606,8 @@ calculate_epa_local <- function(clean_pbp_dat, ep_model, fg_model) {
   ## scoring plays from here on out
   pred_df[(pred_df$play_type %in% offense_score_vec), "ep_after"] = 7
   pred_df[(pred_df$play_type %in% defense_score_vec), "ep_after"] = -7
+  pred_df[pred_df$play_type == "Defensive 2pt Conversion", "ep_before"] = 1
+  pred_df[pred_df$play_type == "Defensive 2pt Conversion", "ep_after"] = -2
   pred_df[pred_df$play_type == "Safety", "ep_after"] = -2
   pred_df[pred_df$play_type == "Field Goal Good", "ep_after"] = 3
   
