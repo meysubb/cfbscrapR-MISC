@@ -3,13 +3,10 @@ library(tidyverse)
 library(dplyr)
 library(stringr)
 source("06-Data-Ingest-Utils.R")
-week_vector = 1:15
-year_vector = 2013:2019
-years_to_train = 2013:2019
 
 ## Pull Schedule data
 
-df <- data.frame(years = years_to_train)
+df <- data.frame(years = 2009:2019)
 schedule_df <-
   df %>% mutate(game_dat = purrr::map(years, cfb_game_info))
 schedule_df <- schedule_df %>% tidyr::unnest(game_dat)
@@ -41,7 +38,8 @@ write.csv(dat_merge, "data/clean_drives_data.csv", row.names = FALSE)
 
 # dat_merge <- read_csv("data/clean_drives_data.csv")
 
-### scrape weekly
+week_vector = 1:15
+year_vector = 2009:2019
 weekly_year_df = expand.grid(year = year_vector, week = week_vector)
 ### scrape yearly
 year_split = split(weekly_year_df, weekly_year_df$year)
@@ -53,10 +51,9 @@ for (i in 1:length(year_split)) {
     .x = year,
     .y = week,
     cfb_pbp_data,
-    season_type = 'both',
-    epa_wpa = FALSE
+    season_type = 'both'
   ))
-  Sys.sleep(5)
+  #Sys.sleep(5)
 }
 
 year_split = lapply(year_split, function(x) {
@@ -68,70 +65,31 @@ all_years = bind_rows(year_split) #%>% inner_join(drive)
 
 # check which special teams plays had touchdowns in the text
 # but not in the description and add touchdown to them
-#-- touchdowns----
-td_vec = str_detect(all_years$play_text, "TD|Touchdown|TOUCHDOWN|touchdown")
-
-#-- kicks/punts----
+td_e = str_detect(all_years$play_text, "TD") |
+  str_detect(all_years$play_text, "Touchdown") |
+  str_detect(all_years$play_text, "TOUCHDOWN")
+## vectors
 kick_vec = str_detect(all_years$play_text, "KICK") &
   !is.na(all_years$play_text)
-punt_vec = str_detect(all_years$play_text, "Punt|punt") &
+punt_vec = (str_detect(all_years$play_text, "Punt") |
+              str_detect(all_years$play_text, "punt")) &
   !is.na(all_years$play_text)
-
-#-- fumbles----
 fumble_vec = str_detect(all_years$play_text, "fumble")
-#-- pass/rush split----
-rush_vec = all_years$play_type == "Rush"
-pass_vec = all_years$play_type == "Pass Reception" | all_years$play_type == "Pass Completion" | all_years$play_type == "Pass"
-
-#-- sacks----
-#-- non-safety sacks are the only ones we want, otherwise would be an additional condition----
-sack_vec = all_years$play_type == "Sack" |
-  all_years$play_type == "Sack Touchdown"
-
-#-- change of possession
-poss_change_vec = all_years$change_of_poss == 1
-
-## Fix strip-sacks to fumbles----
-all_years$play_type[fumble_vec &
-                      sack_vec & poss_change_vec & !td_vec] <-
-  "Fumble Recovery (Opponent)"
-all_years$play_type[fumble_vec & sack_vec & td_vec] <-
-  "Fumble Recovery (Opponent) Touchdown"
-
-## touchdown check, want where touchdowns aren't in the play_type----
+## tourchdown check , want where touchdowns aren't in the play_type
 td_check = !str_detect(all_years$play_type, "Touchdown")
-
-#-- fix kickoff fumble return TDs----
-all_years$play_type[kick_vec & fumble_vec & td_vec & td_check] <-
+# fix kickoff fumble return TDs
+all_years$play_type[kick_vec & fumble_vec & td_e & td_check] <-
   paste0(all_years$play_type[kick_vec &
                                fumble_vec &
-                               td_vec & td_check], " Touchdown")
-
-#-- fix punt return TDs----
-all_years$play_type[punt_vec & td_vec & td_check] <-
+                               td_e & td_check], " Touchdown")
+# fix punt return TDs
+all_years$play_type[punt_vec & td_e & td_check] <-
   paste0(all_years$play_type[punt_vec &
-                               td_vec & td_check], " Touchdown")
-
-#-- fix rush/pass tds that aren't explicit----
-all_years$play_type[td_vec & rush_vec] = "Rushing Touchdown"
-all_years$play_type[td_vec & pass_vec] = "Passing Touchdown"
-
-#-- fix duplicated TD play_type labels----
+                               td_e & td_check], " Touchdown")
+# fix douplicate TD names
 pun_td_sq = (all_years$play_type == "Punt Touchdown Touchdown")
 all_years$play_type[pun_td_sq] <- "Punt Touchdown"
-fum_td_sq = (all_years$play_type == "Fumble Return Touchdown Touchdown")
-all_years$play_type[fum_td_sq] == "Fumble Return Touchdown"
-rush_td_sq = (all_years$play_type == "Rushing Touchdown Touchdown")
-all_years$play_type[rush_td_sq] == "Rushing Touchdown"
 
-## penalty detection-----
-all_years <- add_penalty_cols(all_years)
-
-## kickoff down adjustment
-all_years = all_years %>%
-  mutate(down = ifelse(down == 5 & str_detect(play_type, "Kickoff"), 1, down),
-         down = ifelse(down == 5 & str_detect(play_type, "Penalty"),1 , down),
-         half = ifelse(period <= 2, 1, 2))
 
 saveRDS(all_years, "data/raw_all_years.rds")
 # all_years <- readRDS("data/raw_all_years.rds")
@@ -173,6 +131,7 @@ clean_drive = dat_merge %>% mutate(
     drive_result == 'DOWNS TD' ~ -7,
     str_detect(drive_result, "SF") ~ -2,
     str_detect(drive_result, "TD") ~ 7,
+    #str_detect(drive_result,"FG") ~ 3,
     TRUE ~ 0
   ),
   scoring = ifelse(pts_drive != 0, TRUE, scoring)
@@ -214,9 +173,9 @@ clean_next_select = clean_next_select %>% mutate(drive_id = as.numeric(drive_id)
 pbp_full_df <-
   clean_all_years %>% left_join(clean_next_select) %>% mutate(log_ydstogo = log(distance))
 
-# TO-DO Need to identify other Extra Point lines
+## TO-DO Need to identify other Extra Point lines
 
-## Adjust Field Goal by 17 yards
+# Adjust Field Goal by 17 yards
 fg_inds = str_detect(pbp_full_df$play_type, "Field Goal")
 ep_inds = str_detect(pbp_full_df$play_type, "Extra Point")
 kicker_inds = fg_inds | ep_inds
@@ -234,15 +193,9 @@ pbp_full_df = pbp_full_df %>%  filter(!(game_id %in% OT_games_lst))
 
 ## ESPN doesn't report full games in some instances, and that really throws things off.
 ## get rid of these. Thanks
-check_for_full_game = pbp_full_df %>%  
-  filter(period == 4) %>% 
-  group_by(game_id, clock.minutes) %>%
-  summarize(val = n()) %>% 
-  filter(clock.minutes == min(clock.minutes))
-
-keep_full_games = check_for_full_game %>% 
-  filter(clock.minutes == 0) %>% 
-  pull(game_id)
+check_for_full_game = pbp_full_df %>%  filter(period == 4) %>% group_by(game_id, clock.minutes) %>%
+  summarize(val = n()) %>% filter(clock.minutes == min(clock.minutes))
+keep_full_games = check_for_full_game %>% filter(clock.minutes == 0) %>% pull(game_id)
 
 pbp_full_df = pbp_full_df %>%
   filter(game_id %in% keep_full_games) %>%
@@ -252,6 +205,7 @@ pbp_full_df = pbp_full_df %>%
     # Calculate the drive difference between the next score drive and the
     # current play drive:
     Drive_Score_Dist = DSH - as.numeric(drive_id),
+    
     # Create a weight column based on difference in drives between play
     # and next score:
     Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
@@ -265,9 +219,6 @@ pbp_full_df = pbp_full_df %>%
       (max(Total_W) - min(Total_W))
   )
 
-# add timeout columns
 pbp_full_TO_df <- add_timeout_cols(pbp_full_df)
 
-pbp_full_counts_df <- add_play_counts(pbp_full_TO_df)
-
-saveRDS(pbp_full_counts_df, "data/pbp.RDS")
+saveRDS(pbp_full_TO_df, "data/pbp.RDS")
