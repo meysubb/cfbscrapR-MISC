@@ -63,6 +63,51 @@ year_split = lapply(year_split, function(x) {
 
 all_years = bind_rows(year_split) #%>% inner_join(drive)
 
+#---- penalty detection-----
+all_years <- add_penalty_cols(all_years)
+
+#--- add play_type columns for pass, rush, kickoffs, punts, field goals -----
+all_years <- add_play_type_cols(all_years)
+
+#--- add play_type *count* columns for pass, rush, kickoffs, punts, field goals -----
+all_years <- add_play_type_counts(all_years)
+
+# if you are trying to deal with multiple games at once
+# then you have to get the after individually.
+# get post play stuff per game
+g_ids = sort(unique(all_years$game_id))
+all_years = purrr::map_dfr(g_ids, 
+                           function(x) {
+                            all_years %>%
+                             filter(game_id == x) %>%
+                             prep_play_end_vars()
+                          })
+##--Play type vectors------
+poss_change_vec = c(
+  "Blocked Field Goal",
+  "Blocked Field Goal Touchdown",
+  "Blocked Punt",
+  "Blocked Punt Touchdown",
+  "Field Goal Missed",
+  "Missed Field Goal Return",
+  "Missed Field Goal Return Touchdown",
+  "Fumble Recovery (Opponent)",
+  "Fumble Recovery (Opponent) Touchdown",
+  "Fumble Return Touchdown",
+  "Interception",
+  "Interception Return Touchdown",
+  "Pass Interception Return",
+  "Pass Interception Return Touchdown",
+  "Punt",
+  "Punt Touchdown",
+  "Punt Return Touchdown",
+  "Sack Touchdown",
+  "Uncategorized Touchdown",
+  "Uncategorized Touchdown Touchdown"
+)
+#-- change of possession
+poss_change_vec = all_years$play_type %in% poss_change_vec
+
 # check which special teams plays had touchdowns in the text
 # but not in the description and add touchdown to them
 td_e = str_detect(all_years$play_text, "TD") |
@@ -75,7 +120,27 @@ punt_vec = (str_detect(all_years$play_text, "Punt") |
               str_detect(all_years$play_text, "punt")) &
   !is.na(all_years$play_text)
 fumble_vec = str_detect(all_years$play_text, "fumble")
-## tourchdown check , want where touchdowns aren't in the play_type
+
+
+#-- pass/rush split----
+rush_vec = all_years$play_type == "Rush"
+pass_vec = all_years$play_type == "Pass Reception" | all_years$play_type == "Pass Completion" | all_years$play_type == "Pass"
+
+#-- sacks----
+#-- non-safety sacks are the only ones we want, otherwise would be an additional condition----
+sack_vec = all_years$play_type == "Sack" |
+  all_years$play_type == "Sack Touchdown"
+
+
+
+## Fix strip-sacks to fumbles----
+all_years$play_type[fumble_vec &
+                      sack_vec & poss_change_vec & !td_vec] <-
+  "Fumble Recovery (Opponent)"
+all_years$play_type[fumble_vec & sack_vec & td_vec] <-
+  "Fumble Recovery (Opponent) Touchdown"
+
+## touchdown check, want where touchdowns aren't in the play_type----
 td_check = !str_detect(all_years$play_type, "Touchdown")
 # fix kickoff fumble return TDs
 all_years$play_type[kick_vec & fumble_vec & td_e & td_check] <-
@@ -89,7 +154,10 @@ all_years$play_type[punt_vec & td_e & td_check] <-
 # fix douplicate TD names
 pun_td_sq = (all_years$play_type == "Punt Touchdown Touchdown")
 all_years$play_type[pun_td_sq] <- "Punt Touchdown"
-
+fum_td_sq = (all_years$play_type == "Fumble Return Touchdown Touchdown")
+all_years$play_type[fum_td_sq] = "Fumble Return Touchdown"
+rush_td_sq = (all_years$play_type == "Rushing Touchdown Touchdown")
+all_years$play_type[rush_td_sq] = "Rushing Touchdown"
 
 saveRDS(all_years, "data/raw_all_years.rds")
 # all_years <- readRDS("data/raw_all_years.rds")
