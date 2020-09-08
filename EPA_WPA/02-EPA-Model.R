@@ -226,7 +226,7 @@ cv_fg_cal_error <- ep_fg_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(cv_fg_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
-# 0.01328626
+# 0.01307456
 
 ### Create Final Models 
 final_pbp = pbp_no_OT %>% mutate(
