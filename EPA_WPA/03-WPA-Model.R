@@ -33,10 +33,16 @@ epa$EPA <- epa$ep_after - epa$ep_before
 
 epa_w = epa %>% left_join(win_df) %>%
   mutate(
+    play_after_turnover = ifelse(lag(turnover_vec, 1) == 1 & lag(def_td_play, 1) != 1, 1, 0),
     score_diff = offense_score - defense_score,
+    score_diff_start = ifelse(play_after_turnover == 1, 
+                                -1*(ifelse(game_play_number == 1, 0, lag(score_diff, 1))),
+                                ifelse(scoring_play == 1, 
+                                       ifelse(game_play_number == 1, 0, lag(score_diff, 1)), 
+                                       score_diff)),
     home_EPA = ifelse(offense_play==home,EPA,-EPA),
     away_EPA = -home_EPA,
-    ExpScoreDiff = score_diff + ep_before,
+    ExpScoreDiff = score_diff_start + ep_before,
     Win_Indicator = as.factor(ifelse(offense_play==winner,1,0)),
     half = as.factor(half),
     ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)

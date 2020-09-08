@@ -142,7 +142,7 @@ cv_cal_error <- ep_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(cv_cal_error, weighted.mean(weight_cal_error, n_scoring_event))
-# 0.01109719
+# 0.01103588
 
 # Create the LOSO predictions for the selected cfbscrapR models:
 ep_fg_model_loso_preds <- calc_ep_multinom_fg_loso_cv(as.formula("Next_Score ~ 
