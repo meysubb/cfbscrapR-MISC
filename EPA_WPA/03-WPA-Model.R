@@ -32,21 +32,36 @@ epa[is.na(epa$ep_after),"ep_after"] = 0
 epa$EPA <- epa$ep_after - epa$ep_before
 
 epa_w = epa %>% left_join(win_df) %>%
+  group_by(game_id) %>% 
   mutate(
-    play_after_turnover = ifelse(lag(turnover_vec, 1) == 1 & lag(def_td_play, 1) != 1, 1, 0),
-    score_diff = offense_score - defense_score,
-    score_diff_start = ifelse(play_after_turnover == 1, 
-                                -1*(ifelse(game_play_number == 1, 0, lag(score_diff, 1))),
-                                ifelse(scoring_play == 1, 
-                                       ifelse(game_play_number == 1, 0, lag(score_diff, 1)), 
-                                       score_diff)),
-    home_EPA = ifelse(offense_play==home,EPA,-EPA),
-    away_EPA = -home_EPA,
-    ExpScoreDiff = score_diff_start + ep_before,
-    Win_Indicator = as.factor(ifelse(offense_play==winner,1,0)),
-    half = as.factor(half),
-    ExpScoreDiff_Time_Ratio = ExpScoreDiff/ (TimeSecsRem + 1)
-  )
+    game_play = 1,
+    game_play_number = cumsum(game_play),adj_TimeSecsRem = ifelse(.data$half == 1, 1800 + .data$TimeSecsRem, .data$TimeSecsRem),
+    turnover_vec_lag = dplyr::lag(.data$turnover_vec, 1),
+    def_td_play_lag = dplyr::lag(.data$def_td_play, 1),
+    play_after_turnover = ifelse(.data$turnover_vec_lag == 1 & .data$def_td_play_lag != 1, 1, 0),
+    score_diff = .data$offense_score - .data$defense_score,
+    lag_score_diff = lag(.data$score_diff, 1),
+    lag_score_diff = ifelse(.data$game_play_number == 1, 0, .data$lag_score_diff),
+    offense_play_lag = dplyr::lag(.data$offense_play, 1),
+    offense_play_lag = ifelse(.data$game_play_number == 1, .data$offense_play, .data$offense_play_lag),
+    offense_play_lead = dplyr::lead(.data$offense_play, 1),
+    offense_play_lead2 = dplyr::lead(.data$offense_play, 2),
+    score_pts = ifelse(.data$offense_play_lag == .data$offense_play,
+                       (.data$score_diff - .data$lag_score_diff),
+                       (.data$score_diff + .data$lag_score_diff)),
+    score_diff_start = ifelse(.data$offense_play_lag == .data$offense_play,
+                              .data$lag_score_diff,
+                              -1*.data$lag_score_diff),
+    EPA = .data$ep_after - .data$ep_before,
+    def_EPA = -1*.data$EPA,
+    home_EPA = ifelse(.data$offense_play == .data$home, .data$EPA, -1*.data$EPA),
+    away_EPA = -1*.data$home_EPA,
+    ExpScoreDiff = .data$score_diff_start + .data$ep_before,
+    half = as.factor(.data$half),
+    ExpScoreDiff_Time_Ratio = .data$ExpScoreDiff/(.data$adj_TimeSecsRem + 1)) %>% 
+      ungroup()  
+  
+epa_w = epa_w %>% mutate(Win_Indicator = as.factor(ifelse(offense_play==winner,1,0)))
 
 
 # Create the LOSO predictions for the selected nflscrapR model:
@@ -123,7 +138,7 @@ wp_cv_cal_error <- wp_cv_loso_calibration_results %>%
 
 # Overall weighted calibration error:
 with(wp_cv_cal_error, weighted.mean(weight_cal_error, n_wins))
-# 0.02502889
+# 0.008924582
 
 
 ## final calculations
@@ -136,7 +151,8 @@ wp_model <- mgcv::bam(Win_Indicator ~
                             s(ExpScoreDiff_Time_Ratio) +
                             Under_two*off_timeouts_rem_before*half +
                             Under_two*def_timeouts_rem_before*half,
-                      data = epa_w, family = "binomial", cluster=cl)
+                      data = epa_w, family = "binomial", cluster=cl,
+                      discrete=TRUE)
 
 stopCluster(cl)
 

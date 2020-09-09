@@ -284,11 +284,15 @@ save(fg_model,file="models/final_fg_model.RData")
 all_years = pbp_no_OT %>% split(pbp_no_OT$year)
 
 
-source("08-Pred-Utils.R")
+#source("08-Pred-Utils.R")
 all_years_epa = lapply(all_years, function(x) {
   year = unique(x$year)
   print(year)
-  val = calculate_epa_local(x,ep_model = ep_model,fg_model = fg_model)
+  x = x %>% select(-TimeSecsRem)
+  x = clean_pbp_dat(x)
+  x = penalty_detection(x)
+  #browser()
+  val =create_epa(x,ep_model = ep_model,fg_model = fg_model)
   return(val)
 })
 
