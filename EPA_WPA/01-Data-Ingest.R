@@ -22,21 +22,19 @@ saveRDS(schedule_df_clean, "data/game_schedule.RDS")
 ## Drive data
 drive_df <- df %>% mutate(drive_dat = purrr::map(
   years,
-  cfb_pbp_data,
+  cfb_drives,
   season_type = 'both',
-  week = NULL,
-  drive = TRUE
+  week = NULL
 ))
 drive_dat = drive_df %>% tidyr::unnest(drive_dat)
 
 
 dat_merge <- drive_dat %>% merge(schedule_df_clean)
 colnames(dat_merge)[7] <- "drive_id"
-dat_merge <-
-  dat_merge %>% select(-home_line_scores, -away_line_scores)
-write.csv(dat_merge, "data/clean_drives_data.csv", row.names = FALSE)
+saveRDS(dat_merge,"data/clean_drives_data.RDS")
+#write.csv(dat_merge, "data/clean_drives_data.csv", row.names = FALSE)
 
-# dat_merge <- read_csv("data/clean_drives_data.csv")
+# dat_merge <- readRDS("data/clean_drives_data.RDS")
 
 week_vector = 1:15
 year_vector = 2009:2019
@@ -53,7 +51,7 @@ for (i in 1:length(year_split)) {
     cfb_pbp_data,
     season_type = 'both'
   ))
-  #Sys.sleep(5)
+  Sys.sleep(1)
 }
 
 year_split = lapply(year_split, function(x) {
@@ -65,31 +63,7 @@ all_years = bind_rows(year_split) #%>% inner_join(drive)
 
 # check which special teams plays had touchdowns in the text
 # but not in the description and add touchdown to them
-td_e = str_detect(all_years$play_text, "TD") |
-  str_detect(all_years$play_text, "Touchdown") |
-  str_detect(all_years$play_text, "TOUCHDOWN")
-## vectors
-kick_vec = str_detect(all_years$play_text, "KICK") &
-  !is.na(all_years$play_text)
-punt_vec = (str_detect(all_years$play_text, "Punt") |
-              str_detect(all_years$play_text, "punt")) &
-  !is.na(all_years$play_text)
-fumble_vec = str_detect(all_years$play_text, "fumble")
-## tourchdown check , want where touchdowns aren't in the play_type
-td_check = !str_detect(all_years$play_type, "Touchdown")
-# fix kickoff fumble return TDs
-all_years$play_type[kick_vec & fumble_vec & td_e & td_check] <-
-  paste0(all_years$play_type[kick_vec &
-                               fumble_vec &
-                               td_e & td_check], " Touchdown")
-# fix punt return TDs
-all_years$play_type[punt_vec & td_e & td_check] <-
-  paste0(all_years$play_type[punt_vec &
-                               td_e & td_check], " Touchdown")
-# fix douplicate TD names
-pun_td_sq = (all_years$play_type == "Punt Touchdown Touchdown")
-all_years$play_type[pun_td_sq] <- "Punt Touchdown"
-
+all_years <- cfbscrapR::clean_pbp_dat(all_years)
 
 saveRDS(all_years, "data/raw_all_years.rds")
 # all_years <- readRDS("data/raw_all_years.rds")
@@ -114,32 +88,12 @@ clean_all_years = all_years %>%
   ) %>% filter(down < 5)
 
 ## Figure out the next score now
-clean_drive = dat_merge %>% mutate(
-  pts_drive = case_when(
-    drive_result == 'FG GOOD' ~ 3,
-    drive_result == 'FG' ~ 3,
-    drive_result == 'MISSED FG TD' ~ -7,
-    drive_result == 'KICKOFF RETURN TD' ~ -7,
-    drive_result == 'END OF HALF TD' ~ 7,
-    drive_result == "END OF GAME TD" ~ 7,
-    drive_result == 'PUNT RETURN TD' ~ -7,
-    drive_result == 'PUNT TD' ~ -7,
-    drive_result == 'INT TD' ~ -7,
-    drive_result == 'INT RETURN TOUCH' ~ -7,
-    drive_result == 'FUMBLE RETURN TD' ~ -7,
-    drive_result == 'FUMBLE TD' ~ -7,
-    drive_result == 'DOWNS TD' ~ -7,
-    str_detect(drive_result, "SF") ~ -2,
-    str_detect(drive_result, "TD") ~ 7,
-    #str_detect(drive_result,"FG") ~ 3,
-    TRUE ~ 0
-  ),
-  scoring = ifelse(pts_drive != 0, TRUE, scoring)
-) %>% arrange(game_id, drive_id)
+clean_drive <- cfbscrapR::clean_drive_info(dat_merge %>% rename("id"="drive_id"))
 
 ## get the next score half
 ## with the drive_details
 library(purrr)
+
 clean_next_score_drive <- map_dfr(unique(clean_drive$game_id),
                                   function(x) {
                                     clean_drive %>%
@@ -169,9 +123,12 @@ clean_next_select <-
       TRUE ~ "No_Score"
     )
   )
-clean_next_select = clean_next_select %>% mutate(drive_id = as.numeric(drive_id))
+clean_next_select = clean_next_select %>% mutate(drive_id = as.numeric(drive_id)) %>% rename("scoring_drive" = "scoring")
 pbp_full_df <-
-  clean_all_years %>% left_join(clean_next_select) %>% mutate(log_ydstogo = log(distance))
+  clean_all_years %>% left_join(clean_next_select,
+                                by=c("game_id","drive_id"),
+                                suffix=c("_play","_drive")) %>% 
+  mutate(log_ydstogo = log(distance))
 
 ## TO-DO Need to identify other Extra Point lines
 
@@ -205,7 +162,6 @@ pbp_full_df = pbp_full_df %>%
     # Calculate the drive difference between the next score drive and the
     # current play drive:
     Drive_Score_Dist = DSH - as.numeric(drive_id),
-    
     # Create a weight column based on difference in drives between play
     # and next score:
     Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) /
@@ -219,6 +175,4 @@ pbp_full_df = pbp_full_df %>%
       (max(Total_W) - min(Total_W))
   )
 
-pbp_full_TO_df <- add_timeout_cols(pbp_full_df)
-
-saveRDS(pbp_full_TO_df, "data/pbp.RDS")
+saveRDS(pbp_full_df, "data/pbp.RDS")

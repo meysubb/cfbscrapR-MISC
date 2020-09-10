@@ -6,6 +6,7 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
   # Generate the predictions for each holdout season:
   map_dfr(seasons,
           function(x) {
+            print(glue::glue("Working on data from {x}"))
             # Separate test and training data:
             test_data <- ep_model_data %>%
               filter(year == x)
@@ -85,11 +86,13 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             # only necessary variables are the predicted probabilities
             # and the actual events):
             preds_ep <-
-              data.frame(predict(ep_model, newdata = test_data, type = "probs")) %>%
-              mutate(NSH = test_data$NSH,
-                     Next_Score = test_data$Next_Score)
+              data.frame(predict(ep_model, newdata = test_data, type = "probs")) 
+            # %>%
+            #   mutate(NSH = test_data$NSH,
+            #          Next_Score = test_data$Next_Score)
             
             test_preds_ep <- cbind(test_data, preds_ep)
+            print(glue::glue("Finish training model for {x}"))
             csvfn = glue::glue("data/EPA_Calcs_season_{x}.csv")
             write.csv(test_preds_ep, csvfn, row.names = FALSE)
             return(test_preds_ep)
@@ -109,6 +112,7 @@ calc_ep_multinom_fg_loso_cv <-
     # Generate the predictions for each holdout season:
     map_dfr(seasons,
             function(x) {
+              print(glue::glue("Working on data from {x}"))
               # Separate test and training data:
               test_data <- ep_model_data %>%
                 filter(year == x)
@@ -178,7 +182,7 @@ calc_ep_multinom_fg_loso_cv <-
                                          data = train_data,
                                          weights = model_weights,
                                          maxit = 300)
-              
+              print("Saving ep_model in RData and rds formats")
               rdat = glue::glue("models/ep_cv_loso_model_season_{x}.RData")
               rds = glue::glue("models/ep_cv_loso_model_season_{x}.rds")
               save(ep_model, file = rdat)
@@ -190,11 +194,10 @@ calc_ep_multinom_fg_loso_cv <-
               # and the actual events) from only using the ep_model
               preds_ep <- data.frame(predict(ep_model,
                                              newdata = test_data,
-                                             type = "probs")) %>%
-                mutate(NSH = test_data$NSH,
-                       Next_Score = test_data$Next_Score)
-              
-              
+                                             type = "probs")) 
+              # %>%
+              #   mutate(NSH = test_data$NSH,
+              #          Next_Score = test_data$Next_Score)
               
               # Build field goal model:
               fg_contains = str_detect((train_data$play_type), "Field Goal")
@@ -202,7 +205,7 @@ calc_ep_multinom_fg_loso_cv <-
               
               fg_model <- mgcv::bam(fg_formula,
                                     data = fg_train_data, family = "binomial")
-              
+              print("Saving fg_model in RData and rds formats")
               fg_rdat = glue::glue("models/fg_cv_loso_model_season_{x}.RData")
               fg_rds = glue::glue("models/fg_cv_loso_model_season_{x}.rds")
               save(fg_model, file = fg_rdat)
@@ -262,7 +265,7 @@ calc_ep_multinom_fg_loso_cv <-
               preds_ep[fg_test_attempt_i, "No_Score"] <- missed_fg_ep_preds[, "No_Score"]
               
               test_preds_ep <- cbind(test_data, preds_ep)
-              
+              print(glue::glue("Finish training model for {x}"))
               csvfn = glue::glue("data/EPA_FG_Calcs_season_{x}.csv")
               write.csv(test_preds_ep, csvfn, row.names = FALSE)
               return(test_preds_ep)

@@ -1,7 +1,7 @@
 # Load the three models:
-load("ep_model.RData")
-load("fg_model.RData")
-load("wp_model.RData")
+load("models/final_ep_model.RData")
+load("models/final_fg_model.RData")
+load("models/final_wp_model.RData")
 
 # View the object sizes for each (so you know why we deleted what we did):
 sapply(ep_model, object.size)
@@ -12,6 +12,8 @@ sapply(wp_model, object.size)
 ep_model$residuals <- NULL
 ep_model$fitted.values <- NULL
 ep_model$weights <- NULL
+
+save(ep_model,'models/ep_model.Rdata')
 
 # Remove unused elements of FG:
 fg_model$offset <- NULL
@@ -37,6 +39,8 @@ fg_model$control <- NULL
 fg_model$R <- NULL
 fg_model$Ve <- NULL
 
+save(fg_model,'models/fg_model.Rdata')
+
 # Remove unused elements of WP model:
 wp_model$offset <- NULL 
 wp_model$residuals <- NULL
@@ -61,6 +65,8 @@ wp_model$control <- NULL
 wp_model$R <- NULL
 wp_model$Ve <- NULL
 
-# The following commented code is how the models are then included in nflscrapR:
-# devtools::use_data(current_fgxp_model, current_ep_model4, win_prob_model_epsd_bam, 
+save(wp_model, file="models/wp_model.RData")
+
+# The following commented code is how the models are then included in cfbscrapR:
+# devtools::use_data(fg_model, ep_model, wp_model, 
 #                    internal = TRUE, compress = "xz", overwrite = TRUE)
