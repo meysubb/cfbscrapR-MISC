@@ -105,7 +105,13 @@ Perhaps we should examine the next score probabilities underlying each of these 
 
 <a href="https://imgur.com/bo9t1yp"><img src="https://i.imgur.com/bo9t1yp.png" title="Figure: @SaiemGilani" /></a>
 
-<a href="https://imgur.com/aBEWDtx"><img src="https://i.imgur.com/aBEWDtx.png" title="Figure: @SaiemGilani" /></a>
+#### Expected Points model calibration plots
+
+![ep_fg_cv_loso_calibration_results.png](https://i.imgur.com/bOE4VOU.png)
+ 
+#### Win Probability model calibration plots
+
+![wp_cv_loso_calibration_results.png](https://i.imgur.com/4YgfphC.png)
 
 <a href="https://imgur.com/EARlj5x"><img src="https://i.imgur.com/EARlj5x.png" title="Figure: @SaiemGilani" /></a>
 
